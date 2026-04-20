@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1B2B4B" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Ayo/Canto" />
+  <meta name="description" content="FoodPanda Ops Dashboard — Ayo Cafe & Canto Fresco" />
+  <title>Ayo/Canto Dashboard</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #FFF8F0; }
+    input[type=date]::-webkit-calendar-picker-indicator { opacity: 0.5; }
+    select, input, button { font-family: inherit; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // ── Constants ──────────────────────────────────────────────────────────────
+    const STORES     = ['All Stores','Ayo Cafe','Canto Fresco'];
+    const STORE_KEYS = ['Ayo Cafe','Canto Fresco'];
+    const STORE_COLOR = { 'Ayo Cafe':'#E8652A', 'Canto Fresco':'#2EBFA5', 'All Stores':'#1B2B4B' };
+    const STORE_ICON  = { 'Ayo Cafe':'☕', 'Canto Fresco':'🥐', 'All Stores':'🏪' };
+    const NAV = [
+      { id:'overview',  icon:'📊', label:'Overview'  },
+      { id:'orders',    icon:'🧾', label:'Orders'    },
+      { id:'items',     icon:'🍽️', label:'Top Items' },
+      { id:'reminders', icon:'🔔', label:'Reminders' },
+    ];
+    const PRI_COLOR = { high:'#FB6376', medium:'#F5A623', low:'#2EBFA5' };
+    const C = {
+      navy:'#1B2B4B', navyL:'#243459', cream:'#FFF8F0',
+      orange:'#E8652A', green:'#2EBFA5', red:'#FB6376',
+      gold:'#F5A623', gray:'#8892A4', border:'#EDE8E0',
+    };
+
+    const DEMO_ORDERS = [
+      {id:'AC-001',date:'2026-04-10',store:'Ayo Cafe',    total:320,status:'Delivered',items:[{name:'Adobo Rice Bowl',qty:2},{name:'Calamansi Iced Tea',qty:2}]},
+      {id:'CF-001',date:'2026-04-10',store:'Canto Fresco',total:185,status:'Delivered',items:[{name:'Sinigang Ramen',qty:1},{name:'Buko Pandan Shake',qty:1}]},
+      {id:'AC-002',date:'2026-04-11',store:'Ayo Cafe',    total:410,status:'Delivered',items:[{name:'Adobo Rice Bowl',qty:3},{name:'Calamansi Iced Tea',qty:1}]},
+      {id:'CF-002',date:'2026-04-11',store:'Canto Fresco',total:95, status:'Cancelled',items:[{name:'Pandesal Set',qty:2}]},
+      {id:'AC-003',date:'2026-04-12',store:'Ayo Cafe',    total:560,status:'Delivered',items:[{name:'Sinigang Ramen',qty:2},{name:'Leche Flan',qty:3}]},
+      {id:'CF-003',date:'2026-04-12',store:'Canto Fresco',total:220,status:'Delivered',items:[{name:'Adobo Rice Bowl',qty:1},{name:'Leche Flan',qty:2}]},
+      {id:'AC-004',date:'2026-04-13',store:'Ayo Cafe',    total:375,status:'Delivered',items:[{name:'Adobo Rice Bowl',qty:2},{name:'Buko Pandan Shake',qty:1}]},
+      {id:'CF-004',date:'2026-04-13',store:'Canto Fresco',total:280,status:'Delivered',items:[{name:'Sinigang Ramen',qty:1},{name:'Calamansi Iced Tea',qty:3}]},
+      {id:'AC-005',date:'2026-04-14',store:'Ayo Cafe',    total:490,status:'Delivered',items:[{name:'Adobo Rice Bowl',qty:3},{name:'Leche Flan',qty:1}]},
+      {id:'CF-005',date:'2026-04-14',store:'Canto Fresco',total:340,status:'Delivered',items:[{name:'Sinigang Ramen',qty:2},{name:'Buko Pandan Shake',qty:2}]},
+      {id:'AC-006',date:'2026-04-15',store:'Ayo Cafe',    total:160,status:'Delivered',items:[{name:'Pandesal Set',qty:3},{name:'Calamansi Iced Tea',qty:1}]},
+      {id:'CF-006',date:'2026-04-15',store:'Canto Fresco',total:520,status:'Delivered',items:[{name:'Adobo Rice Bowl',qty:4},{name:'Leche Flan',qty:2}]},
+      {id:'AC-007',date:'2026-04-16',store:'Ayo Cafe',    total:430,status:'Delivered',items:[{name:'Adobo Rice Bowl',qty:2},{name:'Sinigang Ramen',qty:1}]},
+      {id:'CF-007',date:'2026-04-16',store:'Canto Fresco',total:290,status:'Delivered',items:[{name:'Pandesal Set',qty:2},{name:'Leche Flan',qty:1}]},
+    ];
+
+    // ── Storage ────────────────────────────────────────────────────────────────
+    const SK = 'ayocafe-v5';
+    const load = () => { try { const r=localStorage.getItem(SK); return r?JSON.parse(r):null; } catch{return null;} };
+    const save = s => { try { localStorage.setItem(SK, JSON.stringify(s)); } catch{} };
+
+    // ── CSV Parser ─────────────────────────────────────────────────────────────
+    function parseCSV(text, forcedStore) {
+      const lines = text.trim().split(/\r?\n/);
+      if (lines.length < 2) return [];
+      const delim = lines[0].includes(';') ? ';' : ',';
+      const headers = lines[0].split(delim).map(h => h.replace(/"/g,'').trim().toLowerCase());
+      const col = (...n) => { for (const x of n) { const i=headers.findIndex(h=>h.includes(x)); if (i>=0) return i; } return -1; };
+      const idC=col('order id','order number','id'), dateC=col('date','time','created'),
+            totalC=col('total','amount','subtotal','net'), statC=col('status','state'),
+            itemC=col('item','product','menu','name'), qtyC=col('qty','quantity'),
+            storeC=col('store','branch','outlet','location');
+      const map={}, orders=[];
+      for (let i=1; i<lines.length; i++) {
+        const row=lines[i].split(delim).map(c=>c.replace(/"/g,'').trim());
+        if (row.length<2||!row.some(Boolean)) continue;
+        const oid   = idC>=0    ? row[idC]                             : `row-${i}`;
+        const date  = dateC>=0  ? row[dateC].substring(0,10)           : new Date().toISOString().substring(0,10);
+        const total = totalC>=0 ? parseFloat(row[totalC].replace(/[₱,\s]/g,''))||0 : 0;
+        const status= statC>=0  ? row[statC]                           : 'Delivered';
+        const iname = itemC>=0  ? row[itemC]                           : 'Item';
+        const qty   = qtyC>=0   ? parseInt(row[qtyC])||1               : 1;
+        let store = forcedStore || (storeC>=0&&row[storeC] ? (row[storeC].toLowerCase().includes('canto')?'Canto Fresco':'Ayo Cafe') : 'Ayo Cafe');
+        if (map[oid]) map[oid].items.push({name:iname,qty});
+        else { const o={id:oid,date,total,status,store,items:[{name:iname,qty}]}; map[oid]=o; orders.push(o); }
+      }
+      return orders;
+    }
+
+    // ── Metrics ────────────────────────────────────────────────────────────────
+    function calcMetrics(orders) {
+      const dlv = orders.filter(o=>!['cancelled','failed','rejected'].includes((o.status||'').toLowerCase()));
+      const totalSales=dlv.reduce((s,o)=>s+o.total,0), orderCount=dlv.length;
+      const avgOrderValue=orderCount?totalSales/orderCount:0;
+      const itemMap={};
+      dlv.forEach(o=>o.items?.forEach(it=>{itemMap[it.name]=(itemMap[it.name]||0)+it.qty;}));
+      const topItems=Object.entries(itemMap).map(([name,qty])=>({name,qty})).sort((a,b)=>b.qty-a.qty).slice(0,8);
+      const dayMap={};
+      dlv.forEach(o=>{const d=o.date?.substring(0,10)||'?'; dayMap[d]=(dayMap[d]||0)+o.total;});
+      const weeklyData=Object.entries(dayMap).sort(([a],[b])=>a.localeCompare(b)).slice(-7).map(([date,sales])=>({date:date.slice(5),sales:Math.round(sales)}));
+      return {totalSales,orderCount,avgOrderValue,topItems,weeklyData};
+    }
+
+    // ── SVG Charts ─────────────────────────────────────────────────────────────
+    function LineChartSVG({ data, color }) {
+      if (!data.length) return null;
+      const W=320,H=160,pl=48,pr=12,pt=10,pb=28,pw=W-pl-pr,ph=H-pt-pb;
+      const vals=data.map(d=>d.sales), max=Math.max(...vals)||1, min=Math.min(...vals), range=max-min||1;
+      const pts=data.map((d,i)=>[pl+(i/(data.length-1||1))*pw, pt+ph-((d.sales-min)/range)*ph]);
+      return (
+        <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:H}}>
+          {[0,.25,.5,.75,1].map(t=><line key={t} x1={pl} y1={pt+t*ph} x2={W-pr} y2={pt+t*ph} stroke="#F0EAE0" strokeWidth="1"/>)}
+          <polyline points={pts.map(p=>p.join(',')).join(' ')} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round"/>
+          {pts.map(([x,y],i)=><circle key={i} cx={x} cy={y} r="3.5" fill={color}/>)}
+          {data.map((d,i)=>{const x=pl+(i/(data.length-1||1))*pw; return <text key={i} x={x} y={H-6} textAnchor="middle" fontSize="9" fill={C.gray}>{d.date}</text>;})}
+          {[0,.5,1].map(t=>{const v=min+t*range; return <text key={t} x={pl-4} y={pt+ph-t*ph+4} textAnchor="end" fontSize="9" fill={C.gray}>{v>=1000?`${(v/1000).toFixed(0)}k`:Math.round(v)}</text>;})}
+        </svg>
+      );
+    }
+
+    function BarChartSVG({ data, color }) {
+      if (!data.length) return null;
+      const W=320,barH=18,gap=7,pl=96,pr=40,pt=6;
+      const H=pt+data.length*(barH+gap);
+      const max=Math.max(...data.map(d=>d.qty))||1, bw=W-pl-pr;
+      return (
+        <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:H}}>
+          {data.map((d,i)=>{
+            const y=pt+i*(barH+gap), fw=Math.max(4,(d.qty/max)*bw);
+            const label=d.name.length>14?d.name.slice(0,13)+'…':d.name;
+            return (
+              <g key={i}>
+                <text x={pl-6} y={y+barH/2+4} textAnchor="end" fontSize="9" fill={C.navy}>{label}</text>
+                <rect x={pl} y={y} width={fw} height={barH} rx="4" fill={color}/>
+                <text x={pl+fw+5} y={y+barH/2+4} fontSize="9" fill={C.gray}>{d.qty}×</text>
+              </g>
+            );
+          })}
+        </svg>
+      );
+    }
+
+    // ── useWindowWidth ─────────────────────────────────────────────────────────
+    function useWindowWidth() {
+      const [w,setW]=useState(window.innerWidth);
+      useEffect(()=>{ const h=()=>setW(window.innerWidth); window.addEventListener('resize',h); return ()=>window.removeEventListener('resize',h); },[]);
+      return w;
+    }
+
+    // ── Dashboard ──────────────────────────────────────────────────────────────
+    function Dashboard() {
+      const width=useWindowWidth(), mob=width<768;
+      const [tab,          setTab]         = useState('overview');
+      const [store,        setStore]       = useState('All Stores');
+      const [orders,       setOrders]      = useState([]);
+      const [reminders,    setRem]         = useState([]);
+      const [newRem,       setNewRem]      = useState({text:'',due:'',priority:'medium',store:'All Stores'});
+      const [impMsg,       setImpMsg]      = useState('');
+      const [lastImp,      setLastImp]     = useState({});
+      const [sideOpen,     setSideOpen]    = useState(false);
+      const [importTarget, setImportTgt]   = useState('Ayo Cafe');
+      const fileRef = useRef();
+
+      useEffect(()=>{
+        const d=load(); if (!d) return;
+        if (d.orders?.length) setOrders(d.orders);
+        if (d.reminders)      setRem(d.reminders);
+        if (d.lastImp)        setLastImp(d.lastImp);
+      },[]);
+
+      const persist = (o,rem,li) => save({orders:o,reminders:rem,lastImp:li});
+
+      const handleFile = async e => {
+        const file=e.target.files[0]; if (!file) return;
+        setImpMsg(`Reading ${file.name}…`);
+        try {
+          const text=await file.text(), parsed=parseCSV(text,importTarget);
+          if (!parsed.length) { setImpMsg('❌ Cannot parse CSV — check format.'); return; }
+          const kept=orders.filter(o=>o.store!==importTarget), merged=[...kept,...parsed];
+          const li={...lastImp,[importTarget]:{file:file.name,time:new Date().toLocaleString('en-PH'),count:parsed.length}};
+          setOrders(merged); setLastImp(li);
+          setImpMsg(`✅ ${parsed.length} orders for ${STORE_ICON[importTarget]} ${importTarget}!`);
+          persist(merged,reminders,li);
+          setTimeout(()=>setImpMsg(''),5000);
+        } catch { setImpMsg('❌ Error reading file.'); }
+        e.target.value='';
+      };
+
+      const loadDemo = () => {
+        const li={
+          'Ayo Cafe':    {file:'demo-ayo.csv',  time:new Date().toLocaleString('en-PH'),count:DEMO_ORDERS.filter(o=>o.store==='Ayo Cafe').length},
+          'Canto Fresco':{file:'demo-canto.csv',time:new Date().toLocaleString('en-PH'),count:DEMO_ORDERS.filter(o=>o.store==='Canto Fresco').length},
+        };
+        setOrders(DEMO_ORDERS); setLastImp(li); setImpMsg('✅ Demo loaded!');
+        persist(DEMO_ORDERS,reminders,li);
+        setTimeout(()=>setImpMsg(''),3000);
+      };
+
+      const clearStore = s => {
+        const kept=orders.filter(o=>o.store!==s), li={...lastImp}; delete li[s];
+        setOrders(kept); setLastImp(li); persist(kept,reminders,li);
+      };
+
+      const filtered = store==='All Stores' ? orders : orders.filter(o=>o.store===store);
+      const metrics  = filtered.length ? calcMetrics(filtered) : null;
+      const m        = metrics||{};
+      const topItems = m.topItems||[], weeklyData=m.weeklyData||[];
+
+      const addRem = () => {
+        if (!newRem.text.trim()) return;
+        const r={...newRem,id:Date.now(),done:false}, u=[...reminders,r];
+        setRem(u); setNewRem({text:'',due:'',priority:'medium',store:'All Stores'}); persist(orders,u,lastImp);
+      };
+      const toggleRem = id => { const u=reminders.map(r=>r.id===id?{...r,done:!r.done}:r); setRem(u); persist(orders,u,lastImp); };
+      const deleteRem = id => { const u=reminders.filter(r=>r.id!==id); setRem(u); persist(orders,u,lastImp); };
+      const filtRem   = store==='All Stores' ? reminders : reminders.filter(r=>r.store==='All Stores'||r.store===store);
+      const overdue   = filtRem.filter(r=>!r.done&&r.due&&new Date(r.due)<new Date()).length;
+
+      const exportCSV = () => {
+        const rows=[['Order ID','Date','Day','Store','Items','Total','Status']];
+        filtered.forEach(o=>{
+          const day=new Date(o.date+'T00:00:00').toLocaleDateString('en-PH',{weekday:'long'});
+          rows.push([o.id,o.date,day,o.store,o.items?.map(i=>`${i.name}x${i.qty}`).join('; ')||'',o.total,o.status]);
+        });
+        const a=document.createElement('a');
+        a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}));
+        a.download=`${store.replace(' ','-').toLowerCase()}-export.csv`; a.click();
+      };
+
+      const ac = STORE_COLOR[store];
+      const card = {background:'#fff',borderRadius:12,padding:mob?14:20,boxShadow:'0 2px 10px rgba(27,43,75,.08)'};
+      const btn  = (bg=ac,fg='#fff',x={}) => ({background:bg,color:fg,border:'none',borderRadius:8,padding:mob?'8px 12px':'9px 16px',cursor:'pointer',fontSize:mob?12:13,fontWeight:600,whiteSpace:'nowrap',...x});
+      const inp  = {border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',fontSize:13,width:'100%',boxSizing:'border-box',outline:'none',fontFamily:'inherit'};
+      const lbl  = {color:C.gray,fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:.5,margin:0};
+
+      // ── Store status row ─────────────────────────────────────────────────────
+      const StoreRow = () => (
+        <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
+          {STORE_KEYS.map(s=>{
+            const cnt=orders.filter(o=>o.store===s).length, info=lastImp[s], has=cnt>0;
+            return (
+              <div key={s} style={{display:'flex',alignItems:'center',gap:8,background:'#fff',borderRadius:10,padding:'8px 12px',boxShadow:'0 1px 6px rgba(27,43,75,.07)',border:`2px solid ${has?STORE_COLOR[s]:C.border}`,flex:'1 1 auto',minWidth:160}}>
+                <span style={{fontSize:20}}>{STORE_ICON[s]}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <p style={{fontWeight:700,color:C.navy,margin:0,fontSize:13}}>{s}</p>
+                  {has
+                    ? <p style={{color:C.green,fontSize:11,margin:'2px 0 0',fontWeight:600}}>✅ {cnt} orders{info?` · ${info.file}`:''}</p>
+                    : <p style={{color:C.gray,fontSize:11,margin:'2px 0 0'}}>No data — import a CSV</p>}
+                </div>
+                {has&&<button onClick={()=>clearStore(s)} style={{background:'none',border:'none',cursor:'pointer',color:C.gray,fontSize:16,lineHeight:1,padding:0,flexShrink:0}}>×</button>}
+              </div>
+            );
+          })}
+        </div>
+      );
+
+      const noData = (
+        <div style={{...card,textAlign:'center',padding:mob?40:80}}>
+          <div style={{fontSize:48,marginBottom:16}}>📥</div>
+          <p style={{fontSize:17,fontWeight:700,color:C.navy,margin:'0 0 8px'}}>No data yet</p>
+          <p style={{color:C.gray,margin:'0 0 20px',fontSize:14}}>Use the sidebar to import a CSV, or try demo data.</p>
+          <button style={btn(ac)} onClick={loadDemo}>🎲 Try Demo Data</button>
+        </div>
+      );
+
+      // ── Import section (reused in sidebar + drawer) ──────────────────────────
+      const ImportSection = ({onDone}) => (
+        <div style={{padding:'12px 12px 8px',borderBottom:`1px solid ${C.navyL}`}}>
+          <p style={{...lbl,color:C.gray,marginBottom:8}}>Import CSV For</p>
+          <select value={importTarget} onChange={e=>setImportTgt(e.target.value)}
+            style={{...inp,cursor:'pointer',marginBottom:8,background:STORE_COLOR[importTarget]+'33',color:STORE_COLOR[importTarget],fontWeight:700,border:`1.5px solid ${STORE_COLOR[importTarget]}`}}>
+            {STORE_KEYS.map(s=><option key={s} value={s}>{STORE_ICON[s]} {s}</option>)}
+          </select>
+          <button style={{...btn(STORE_COLOR[importTarget]),width:'100%',justifyContent:'center',display:'flex'}}
+            onClick={()=>{fileRef.current.click();onDone&&onDone();}}>📥 Import CSV</button>
+          {!orders.length&&<button style={{...btn(C.navyL),width:'100%',marginTop:8,justifyContent:'center',display:'flex'}}
+            onClick={()=>{loadDemo();onDone&&onDone();}}>🎲 Load Demo</button>}
+          {impMsg&&<p style={{fontSize:11,color:impMsg.includes('✅')?C.green:C.red,fontWeight:600,margin:'8px 0 0',wordBreak:'break-word'}}>{impMsg}</p>}
+        </div>
+      );
+
+      // ── Store filter (reused in sidebar + drawer) ─────────────────────────────
+      const StoreFilter = ({onPick}) => (
+        <div style={{padding:'12px 10px 8px',borderBottom:`1px solid ${C.navyL}`}}>
+          <p style={{...lbl,color:C.gray,marginBottom:8,paddingLeft:8}}>View Store</p>
+          {STORES.map(s=>(
+            <div key={s} onClick={()=>{setStore(s);onPick&&onPick();}}
+              style={{display:'flex',alignItems:'center',gap:8,padding:'9px 10px',marginBottom:3,borderRadius:8,cursor:'pointer',background:store===s?STORE_COLOR[s]:'transparent',color:store===s?'#fff':C.gray,fontSize:13,fontWeight:store===s?700:400}}>
+              {STORE_ICON[s]} {s}
+              {s!=='All Stores'&&orders.filter(o=>o.store===s).length>0&&(
+                <span style={{marginLeft:'auto',background:'rgba(255,255,255,.25)',borderRadius:20,padding:'1px 7px',fontSize:10}}>{orders.filter(o=>o.store===s).length}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+
+      // ── Nav links (reused) ────────────────────────────────────────────────────
+      const NavLinks = ({onPick,vertical}) => (
+        <nav style={{flex:1,padding:'8px 8px'}}>
+          {NAV.map(n=>{
+            const active=tab===n.id, alerts=(n.id==='reminders'&&overdue)||0;
+            return (
+              <div key={n.id} onClick={()=>{setTab(n.id);onPick&&onPick();}}
+                style={{display:'flex',alignItems:'center',gap:10,padding:vertical?'12px 12px':'11px 12px',cursor:'pointer',borderRadius:8,background:active?ac:'transparent',color:active?'#fff':C.gray,fontSize:14,fontWeight:active?600:400,transition:'all .15s',marginBottom:3,justifyContent:'space-between'}}>
+                <span style={{display:'flex',gap:10}}><span>{n.icon}</span>{n.label}</span>
+                {alerts>0&&<span style={{background:'#FB6376',color:'#fff',borderRadius:99,fontSize:10,fontWeight:700,padding:'1px 7px'}}>{alerts}</span>}
+              </div>
+            );
+          })}
+        </nav>
+      );
+
+      // ── Data status badges ────────────────────────────────────────────────────
+      const DataStatus = () => (
+        <div style={{margin:'0 10px 14px',display:'grid',gap:5}}>
+          {STORE_KEYS.map(s=>{
+            const cnt=orders.filter(o=>o.store===s).length, info=lastImp[s];
+            return (
+              <div key={s} style={{background:C.navyL,borderRadius:8,padding:'8px 10px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <span style={{fontSize:11,color:cnt>0?C.green:C.gray,fontWeight:600}}>{STORE_ICON[s]} {s}</span>
+                  {cnt>0&&<button onClick={()=>clearStore(s)} style={{background:'none',border:'none',cursor:'pointer',color:C.gray,fontSize:14,padding:0,lineHeight:1}}>×</button>}
+                </div>
+                <p style={{color:cnt>0?'#fff':C.gray,fontSize:10,margin:'3px 0 0',fontWeight:cnt>0?600:400}}>{cnt>0?`${cnt} orders${info?` · ${info.file}`:''}`:'-'}</p>
+              </div>
+            );
+          })}
+        </div>
+      );
+
+      // ── Desktop sidebar ──────────────────────────────────────────────────────
+      const Sidebar = () => (
+        <div style={{width:230,minWidth:230,background:C.navy,display:'flex',flexDirection:'column',height:'100vh',position:'sticky',top:0,overflowY:'auto'}}>
+          <div style={{padding:'22px 18px 16px',borderBottom:`1px solid ${C.navyL}`}}>
+            <p style={{color:'#fff',fontSize:15,fontWeight:700,margin:0}}>☕ Ayo / 🥐 Canto</p>
+            <p style={{color:C.gray,fontSize:11,margin:'2px 0 0'}}>FoodPanda Ops Dashboard</p>
+          </div>
+          <StoreFilter/>
+          <ImportSection/>
+          <NavLinks/>
+          <DataStatus/>
+        </div>
+      );
+
+      // ── Mobile header ────────────────────────────────────────────────────────
+      const MobileHeader = () => (
+        <div style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:C.navy,display:'flex',alignItems:'center',gap:10,padding:'12px 16px',boxShadow:'0 2px 8px rgba(0,0,0,.25)'}}>
+          <button onClick={()=>setSideOpen(v=>!v)} style={{background:'none',border:'none',color:'#fff',fontSize:22,cursor:'pointer',padding:0,lineHeight:1}}>☰</button>
+          <div style={{flex:1}}>
+            <p style={{color:'#fff',fontSize:14,fontWeight:700,margin:0}}>☕ Ayo / 🥐 Canto</p>
+            <p style={{color:C.gray,fontSize:11,margin:0}}>{STORE_ICON[store]} {store}</p>
+          </div>
+          <select value={store} onChange={e=>setStore(e.target.value)}
+            style={{background:ac,color:'#fff',border:'none',borderRadius:8,padding:'6px 10px',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+            {STORES.map(s=><option key={s} value={s}>{STORE_ICON[s]} {s}</option>)}
+          </select>
+        </div>
+      );
+
+      // ── Mobile drawer ────────────────────────────────────────────────────────
+      const MobileDrawer = () => !sideOpen ? null : (
+        <div style={{position:'fixed',inset:0,zIndex:200,display:'flex'}}>
+          <div style={{width:270,background:C.navy,height:'100%',display:'flex',flexDirection:'column',overflowY:'auto'}}>
+            <div style={{padding:'20px 16px 14px',borderBottom:`1px solid ${C.navyL}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div>
+                <p style={{color:'#fff',fontSize:15,fontWeight:700,margin:0}}>Ayo Cafe / Canto Fresco</p>
+                <p style={{color:C.gray,fontSize:11,margin:'2px 0 0'}}>FoodPanda Ops Dashboard</p>
+              </div>
+              <button onClick={()=>setSideOpen(false)} style={{background:'none',border:'none',color:C.gray,fontSize:22,cursor:'pointer'}}>×</button>
+            </div>
+            <StoreFilter onPick={()=>setSideOpen(false)}/>
+            <ImportSection onDone={()=>setSideOpen(false)}/>
+            <NavLinks onPick={()=>setSideOpen(false)} vertical/>
+            <div style={{margin:'auto 12px 16px',display:'grid',gap:6}}>
+              {STORE_KEYS.map(s=>{const cnt=orders.filter(o=>o.store===s).length; return (
+                <div key={s} style={{background:C.navyL,borderRadius:8,padding:'8px 10px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <span style={{fontSize:11,color:cnt>0?C.green:C.gray}}>{STORE_ICON[s]} {s}</span>
+                  <span style={{fontSize:11,color:cnt>0?'#fff':C.gray,fontWeight:700}}>{cnt>0?`${cnt} orders`:'No data'}</span>
+                </div>
+              );})}
+            </div>
+          </div>
+          <div style={{flex:1,background:'rgba(0,0,0,.45)'}} onClick={()=>setSideOpen(false)}/>
+        </div>
+      );
+
+      // ── Mobile bottom nav ────────────────────────────────────────────────────
+      const BottomNav = () => (
+        <div style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:C.navy,display:'flex',borderTop:`1px solid ${C.navyL}`}}>
+          {NAV.map(n=>{
+            const active=tab===n.id, alerts=(n.id==='reminders'&&overdue)||0;
+            return (
+              <div key={n.id} onClick={()=>setTab(n.id)} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',padding:'8px 2px 10px',cursor:'pointer',color:active?ac:C.gray,position:'relative'}}>
+                {alerts>0&&<span style={{position:'absolute',top:6,right:'20%',background:'#FB6376',color:'#fff',borderRadius:99,fontSize:9,fontWeight:700,padding:'1px 5px',lineHeight:1.3}}>{alerts}</span>}
+                <span style={{fontSize:20}}>{n.icon}</span>
+                <span style={{fontSize:9,fontWeight:active?700:400,marginTop:2}}>{n.label}</span>
+                {active&&<div style={{position:'absolute',top:0,left:'20%',right:'20%',height:2,background:ac,borderRadius:2}}/>}
+              </div>
+            );
+          })}
+        </div>
+      );
+
+      const mainPad = mob ? '78px 12px 80px' : '20px 24px';
+
+      return (
+        <div style={{display:'flex',height:'100vh',fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.cream,overflow:'hidden'}}>
+          <input ref={fileRef} type="file" accept=".csv" style={{display:'none'}} onChange={handleFile}/>
+          {mob ? <><MobileHeader/><MobileDrawer/></> : <Sidebar/>}
+
+          <div style={{flex:1,overflowY:'auto',padding:mainPad}}>
+            {/* Page title */}
+            {!mob&&(
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
+                <div>
+                  <h1 style={{fontSize:20,fontWeight:700,color:C.navy,margin:0}}>{NAV.find(n=>n.id===tab)?.icon} {NAV.find(n=>n.id===tab)?.label}</h1>
+                  <p style={{margin:'4px 0 0',fontSize:12,color:ac,fontWeight:600}}>
+                    {STORE_ICON[store]} {store}
+                    {filtered.length>0&&<span style={{color:C.gray,fontWeight:400}}> &nbsp;·&nbsp; {filtered.length} orders</span>}
+                  </p>
+                </div>
+                {filtered.length>0&&<button style={btn(C.navyL)} onClick={exportCSV}>⬇️ Export CSV</button>}
+              </div>
+            )}
+            {mob&&(
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                <div>
+                  <h2 style={{fontSize:16,fontWeight:700,color:C.navy,margin:0}}>{NAV.find(n=>n.id===tab)?.icon} {NAV.find(n=>n.id===tab)?.label}</h2>
+                  {filtered.length>0&&<p style={{margin:'2px 0 0',fontSize:11,color:C.gray}}>{filtered.length} orders · {store}</p>}
+                </div>
+                {filtered.length>0&&<button style={btn(C.navyL)} onClick={exportCSV}>⬇️</button>}
+              </div>
+            )}
+
+            {/* ── Overview ── */}
+            {tab==='overview'&&(
+              !filtered.length ? <><StoreRow/>{noData}</> : (
+                <>
+                  <StoreRow/>
+                  {store==='All Stores'&&(
+                    <div style={{display:'grid',gridTemplateColumns:mob?'1fr':'1fr 1fr',gap:12,marginBottom:14}}>
+                      {STORE_KEYS.map(s=>{
+                        const ords=orders.filter(o=>o.store===s);
+                        if (!ords.length) return (
+                          <div key={s} onClick={()=>setStore(s)} style={{...card,borderLeft:`4px solid ${STORE_COLOR[s]}`,cursor:'pointer',opacity:.6,display:'flex',alignItems:'center',gap:12}}>
+                            <span style={{fontSize:26}}>{STORE_ICON[s]}</span>
+                            <div><p style={{...lbl,marginBottom:2}}>{s}</p><p style={{color:C.gray,fontSize:13,margin:0}}>No data</p></div>
+                          </div>
+                        );
+                        const sm=calcMetrics(ords);
+                        return (
+                          <div key={s} onClick={()=>setStore(s)} style={{...card,borderLeft:`4px solid ${STORE_COLOR[s]}`,cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                            <div>
+                              <p style={{...lbl,marginBottom:4}}>{STORE_ICON[s]} {s}</p>
+                              <p style={{fontSize:mob?18:22,fontWeight:700,color:STORE_COLOR[s],margin:0}}>₱{sm.totalSales.toLocaleString('en-PH',{minimumFractionDigits:2})}</p>
+                              <p style={{fontSize:11,color:C.gray,margin:'3px 0 0'}}>{sm.orderCount} orders &nbsp;·&nbsp; avg ₱{sm.avgOrderValue.toFixed(0)}</p>
+                            </div>
+                            <span style={{color:C.gray,fontSize:18}}>›</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div style={{display:'grid',gridTemplateColumns:mob?'1fr 1fr':'repeat(3,1fr)',gap:mob?10:14,marginBottom:14}}>
+                    {[
+                      {l:'Total Sales',v:`₱${m.totalSales?.toLocaleString('en-PH',{minimumFractionDigits:2})}`,c:ac},
+                      {l:'Orders',v:m.orderCount,c:C.navy},
+                      {l:'Avg Order',v:`₱${m.avgOrderValue?.toFixed(2)}`,c:C.green},
+                    ].map(({l,v,c},i)=>(
+                      <div key={l} style={{...card,gridColumn:mob&&i===2?'1 / -1':'auto'}}>
+                        <p style={lbl}>{l}</p>
+                        <p style={{fontSize:mob?18:24,fontWeight:700,color:c,margin:'6px 0 0'}}>{v}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:mob?'1fr':'1fr 1fr',gap:14}}>
+                    <div style={card}>
+                      <p style={{fontWeight:700,color:C.navy,margin:'0 0 12px',fontSize:14}}>📈 Daily Sales Trend</p>
+                      <LineChartSVG data={weeklyData} color={ac}/>
+                    </div>
+                    <div style={card}>
+                      <p style={{fontWeight:700,color:C.navy,margin:'0 0 12px',fontSize:14}}>🍽️ Top Items</p>
+                      <BarChartSVG data={topItems.slice(0,5)} color={ac}/>
+                    </div>
+                  </div>
+                </>
+              )
+            )}
+
+            {/* ── Orders ── */}
+            {tab==='orders'&&(
+              !filtered.length ? noData : mob ? (
+                <div style={{display:'grid',gap:10}}>
+                  {[...filtered].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((o,i)=>{
+                    const cancelled=['cancelled','failed','rejected'].includes((o.status||'').toLowerCase());
+                    const sc=STORE_COLOR[o.store]||C.orange;
+                    const day=new Date(o.date+'T00:00:00').toLocaleDateString('en-PH',{weekday:'short'});
+                    return (
+                      <div key={i} style={{...card,borderLeft:`4px solid ${sc}`}}>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+                          <div>
+                            <p style={{fontWeight:700,color:C.navy,margin:0,fontSize:13}}>{o.id}</p>
+                            <p style={{color:C.gray,fontSize:11,margin:'2px 0 0'}}>📅 {o.date} ({day})</p>
+                          </div>
+                          <div style={{textAlign:'right'}}>
+                            <p style={{fontWeight:700,color:ac,margin:0,fontSize:14}}>₱{o.total.toLocaleString('en-PH',{minimumFractionDigits:2})}</p>
+                            <span style={{background:(cancelled?C.red:C.green)+'22',color:cancelled?C.red:C.green,borderRadius:20,padding:'2px 8px',fontSize:10,fontWeight:700}}>{cancelled?'❌':'✅'} {o.status}</span>
+                          </div>
+                        </div>
+                        <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                          <span style={{background:sc+'22',color:sc,borderRadius:20,padding:'2px 8px',fontSize:10,fontWeight:600}}>{STORE_ICON[o.store]} {o.store}</span>
+                          {o.items?.map((it,j)=><span key={j} style={{background:C.cream,border:`1px solid ${C.border}`,borderRadius:6,padding:'2px 7px',fontSize:10}}>{it.name} ×{it.qty}</span>)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={card}>
+                  <p style={{fontWeight:700,color:C.navy,margin:'0 0 14px'}}>{filtered.length} Orders — {store}</p>
+                  <div style={{overflowX:'auto'}}>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                      <thead>
+                        <tr style={{background:C.cream}}>
+                          {['Order ID','Date','Day','Store','Items Ordered','Total','Status'].map(h=>(
+                            <th key={h} style={{textAlign:'left',padding:'10px 14px',fontSize:11,fontWeight:700,color:C.gray,textTransform:'uppercase',letterSpacing:.5,whiteSpace:'nowrap'}}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...filtered].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((o,i)=>{
+                          const d=new Date(o.date+'T00:00:00'), day=d.toLocaleDateString('en-PH',{weekday:'long'});
+                          const cancelled=['cancelled','failed','rejected'].includes((o.status||'').toLowerCase());
+                          const sc=STORE_COLOR[o.store]||C.orange;
+                          return (
+                            <tr key={i} style={{borderTop:`1px solid ${C.border}`,background:i%2===0?'#fff':'#FDFAF7'}}>
+                              <td style={{padding:'11px 14px',fontWeight:600,color:C.navy,whiteSpace:'nowrap'}}>{o.id}</td>
+                              <td style={{padding:'11px 14px',color:C.navy,whiteSpace:'nowrap'}}>📅 {o.date}</td>
+                              <td style={{padding:'11px 14px',color:C.gray,whiteSpace:'nowrap'}}>{day}</td>
+                              <td style={{padding:'11px 14px',whiteSpace:'nowrap'}}><span style={{background:sc+'22',color:sc,borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>{STORE_ICON[o.store]} {o.store}</span></td>
+                              <td style={{padding:'11px 14px',maxWidth:220}}>{o.items?.map((it,j)=><span key={j} style={{display:'inline-block',background:C.cream,border:`1px solid ${C.border}`,borderRadius:6,padding:'2px 7px',fontSize:11,margin:'2px 2px 2px 0',whiteSpace:'nowrap'}}>{it.name} ×{it.qty}</span>)}</td>
+                              <td style={{padding:'11px 14px',fontWeight:700,color:ac,whiteSpace:'nowrap'}}>₱{o.total.toLocaleString('en-PH',{minimumFractionDigits:2})}</td>
+                              <td style={{padding:'11px 14px'}}><span style={{background:(cancelled?C.red:C.green)+'22',color:cancelled?C.red:C.green,borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700,whiteSpace:'nowrap'}}>{cancelled?'❌':'✅'} {o.status}</span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* ── Top Items ── */}
+            {tab==='items'&&(
+              !topItems.length ? noData : (
+                <div style={card}>
+                  <p style={{fontWeight:700,color:C.navy,margin:'0 0 14px',fontSize:14}}>Top Items — {store}</p>
+                  {mob ? (
+                    <div style={{display:'grid',gap:10}}>
+                      {topItems.map((item,i)=>{
+                        const pct=Math.round((item.qty/topItems[0].qty)*100);
+                        return (
+                          <div key={i} style={{padding:'10px 0',borderBottom:i<topItems.length-1?`1px solid ${C.border}`:'none'}}>
+                            <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                              <span style={{fontWeight:600,color:C.navy,fontSize:13}}><span style={{color:i<3?ac:C.gray,fontWeight:700}}>#{i+1}</span> {item.name}</span>
+                              <span style={{color:C.navy,fontSize:13,fontWeight:600}}>{item.qty}×</span>
+                            </div>
+                            <div style={{display:'flex',alignItems:'center',gap:8}}>
+                              <div style={{background:C.border,borderRadius:20,height:7,flex:1}}><div style={{background:ac,borderRadius:20,height:7,width:`${pct}%`}}/></div>
+                              <span style={{fontSize:11,color:C.gray,width:28}}>{pct}%</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <table style={{width:'100%',borderCollapse:'collapse'}}>
+                      <thead><tr style={{background:C.cream}}>{['Rank','Item Name','Qty Sold','% of Top'].map(h=><th key={h} style={{textAlign:'left',padding:'10px 14px',fontSize:11,fontWeight:700,color:C.gray,textTransform:'uppercase',letterSpacing:.5}}>{h}</th>)}</tr></thead>
+                      <tbody>
+                        {topItems.map((item,i)=>{
+                          const pct=Math.round((item.qty/topItems[0].qty)*100);
+                          return (
+                            <tr key={i} style={{borderTop:`1px solid ${C.border}`}}>
+                              <td style={{padding:'13px 14px',fontWeight:700,color:i<3?ac:C.gray,fontSize:15}}>#{i+1}</td>
+                              <td style={{padding:'13px 14px',fontWeight:600,color:C.navy}}>{item.name}</td>
+                              <td style={{padding:'13px 14px',color:C.navy}}>{item.qty}×</td>
+                              <td style={{padding:'13px 14px',minWidth:160}}>
+                                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                                  <div style={{background:C.border,borderRadius:20,height:8,flex:1}}><div style={{background:ac,borderRadius:20,height:8,width:`${pct}%`}}/></div>
+                                  <span style={{fontSize:12,color:C.gray,width:32}}>{pct}%</span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )
+            )}
+
+            {/* ── Reminders ── */}
+            {tab==='reminders'&&(
+              <div>
+                <div style={{...card,marginBottom:12}}>
+                  <p style={{fontWeight:700,color:C.navy,margin:'0 0 12px',fontSize:14}}>Add Reminder</p>
+                  <div style={{display:'grid',gap:10}}>
+                    <input style={inp} placeholder="e.g. Restock coffee beans…" value={newRem.text}
+                      onChange={e=>setNewRem({...newRem,text:e.target.value})} onKeyDown={e=>e.key==='Enter'&&addRem()}/>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                      <input type="date" style={inp} value={newRem.due} onChange={e=>setNewRem({...newRem,due:e.target.value})}/>
+                      <select style={{...inp,cursor:'pointer'}} value={newRem.store} onChange={e=>setNewRem({...newRem,store:e.target.value})}>
+                        {STORES.map(s=><option key={s} value={s}>{STORE_ICON[s]} {s}</option>)}
+                      </select>
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:10}}>
+                      <select style={{...inp,cursor:'pointer'}} value={newRem.priority} onChange={e=>setNewRem({...newRem,priority:e.target.value})}>
+                        <option value="high">🔴 High</option>
+                        <option value="medium">🟡 Medium</option>
+                        <option value="low">🟢 Low</option>
+                      </select>
+                      <button style={btn(ac)} onClick={addRem}>Add</button>
+                    </div>
+                  </div>
+                </div>
+                <div style={{display:'grid',gap:10}}>
+                  {!filtRem.length&&<p style={{color:C.gray,textAlign:'center',padding:40,fontSize:14}}>No reminders yet. Add one above!</p>}
+                  {[...filtRem].sort((a,b)=>(a.done-b.done)||(new Date(a.due||'9999')-new Date(b.due||'9999'))).map(r=>{
+                    const od=!r.done&&r.due&&new Date(r.due)<new Date(), sc=STORE_COLOR[r.store]||C.gray;
+                    return (
+                      <div key={r.id} style={{...card,display:'flex',alignItems:'flex-start',gap:10,opacity:r.done?.6:1,borderLeft:`4px solid ${PRI_COLOR[r.priority]}`}}>
+                        <input type="checkbox" checked={r.done} onChange={()=>toggleRem(r.id)} style={{width:18,height:18,cursor:'pointer',marginTop:2,flexShrink:0}}/>
+                        <div style={{flex:1,minWidth:0}}>
+                          <p style={{margin:0,fontWeight:600,color:C.navy,textDecoration:r.done?'line-through':'none',fontSize:14}}>{r.text}</p>
+                          <div style={{display:'flex',gap:6,marginTop:5,flexWrap:'wrap'}}>
+                            {r.due&&<p style={{margin:0,fontSize:11,color:od?C.red:C.gray}}>📅 {od?'⚠️ ':''}{r.due}</p>}
+                            <span style={{background:sc+'22',color:sc,borderRadius:20,padding:'1px 8px',fontSize:11,fontWeight:600}}>{STORE_ICON[r.store]||'🏪'} {r.store}</span>
+                            <span style={{background:PRI_COLOR[r.priority],color:'#fff',borderRadius:6,padding:'1px 8px',fontSize:11,fontWeight:700}}>{r.priority.toUpperCase()}</span>
+                          </div>
+                        </div>
+                        <button onClick={()=>deleteRem(r.id)} style={{background:'none',border:'none',cursor:'pointer',color:C.gray,fontSize:20,lineHeight:1,padding:0,flexShrink:0}}>×</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {mob&&<BottomNav/>}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<Dashboard/>);
+  </script>
+</body>
+</html>
