@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1B2B4B" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Ayo/Canto" />
+  <title>Ayo/Canto Dashboard</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #FFF8F0; }
+    select, input, button { font-family: inherit; }
+    input[type=date]::-webkit-calendar-picker-indicator { opacity: .5; cursor: pointer; }
+    ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: #C8C0B4; border-radius: 4px; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ── Constants ────────────────────────────────────────────────────────────────
+const STORES      = ['All Stores','Ayo Cafe','Canto Fresco'];
+const STORE_KEYS  = ['Ayo Cafe','Canto Fresco'];
+const STORE_COLOR = { 'Ayo Cafe':'#E8652A','Canto Fresco':'#2EBFA5','All Stores':'#1B2B4B' };
+const STORE_ICON  = { 'Ayo Cafe':'☕','Canto Fresco':'🥐','All Stores':'🏪' };
+const NAV = [
+  { id:'overview', icon:'📊', label:'Overview'  },
+  { id:'orders',   icon:'🧾', label:'Orders'    },
+  { id:'items',    icon:'🍽️', label:'Top Items' },
+  { id:'reminders',icon:'🔔', label:'Reminders' },
+];
+const PRI_COLOR  = { high:'#FB6376',medium:'#F5A623',low:'#2EBFA5' };
+const QUICK_PCTS = [
+  { id:'all',   label:'All Time'   },
+  { id:'today', label:'Today'      },
+  { id:'week',  label:'7 Days'     },
+  { id:'month', label:'This Month' },
+  { id:'custom',label:'Custom'     },
+];
+const GROUP_BYS = [
+  { id:'day',  label:'Day'   },
+  { id:'week', label:'Week'  },
+  { id:'month',label:'Month' },
+];
+const C = {
+  navy:'#1B2B4B',navyL:'#243459',cream:'#FFF8F0',
+  orange:'#E8652A',green:'#2EBFA5',red:'#FB6376',
+  gold:'#F5A623',gray:'#8892A4',border:'#EDE8E0',
+};
+
+const DEMO_ORDERS = [
+  {id:'AC-001',date:'2026-04-10',store:'Ayo Cafe',    total:320,status:'Delivered',items:[{name:'Adobo Rice Bowl',qty:2},{name:'Calamansi Iced Tea',qty:2}]},
+  {id:'CF-001',date:'2026-04-10',store:'Canto Fresco',total:185,status:'Delivered',items:[{name:'Sinigang Ramen',qty:1},{name:'Buko Pandan Shake',qty:1}]},
+  {id:'AC-002',date:'2026-04-11',store:'Ayo Cafe',    total:410,status:'Delivered',items:[{name:'Adobo Rice Bowl',qty:3},{name:'Calamansi Iced Tea',qty:1}]},
+  {id:'CF-002',date:'2026-04-11',store:'Canto Fresco',total:95, status:'Cancelled',items:[{name:'Pandesal Set',qty:2}]},
+  {id:'AC-003',date:'2026-04-12',store:'Ayo Cafe',    total:560,status:'Delivered',items:[{name:'Sinigang Ramen',qty:2},{name:'Leche Flan',qty:3}]},
+  {id:'CF-003',date:'2026-04-12',store:'Canto Fresco',total:220,status:'Delivered',items:[{name:'Adobo Rice Bowl',qty:1},{name:'Leche Flan',qty:2}]},
+  {id:'AC-004',date:'2026-04-13',store:'Ayo Cafe',    total:375,status:'Delivered',items:[{name:'Adobo Rice Bowl',qty:2},{name:'Buko Pandan Shake',qty:1}]},
+  {id:'CF-004',date:'2026-04-13',store:'Canto Fresco',total:280,status:'Delivered',items:[{name:'Sinigang Ramen',qty:1},{name:'Calamansi Iced Tea',qty:3}]},
+  {id:'AC-005',date:'2026-04-14',store:'Ayo Cafe',    total:490,status:'Delivered',items:[{name:'Adobo Rice Bowl',qty:3},{name:'Leche Flan',qty:1}]},
+  {id:'CF-005',date:'2026-04-14',store:'Canto Fresco',total:340,status:'Delivered',items:[{name:'Sinigang Ramen',qty:2},{name:'Buko Pandan Shake',qty:2}]},
+  {id:'AC-006',date:'2026-04-15',store:'Ayo Cafe',    total:160,status:'Delivered',items:[{name:'Pandesal Set',qty:3},{name:'Calamansi Iced Tea',qty:1}]},
+  {id:'CF-006',date:'2026-04-15',store:'Canto Fresco',total:520,status:'Delivered',items:[{name:'Adobo Rice Bowl',qty:4},{name:'Leche Flan',qty:2}]},
+  {id:'AC-007',date:'2026-04-16',store:'Ayo Cafe',    total:430,status:'Delivered',items:[{name:'Adobo Rice Bowl',qty:2},{name:'Sinigang Ramen',qty:1}]},
+  {id:'CF-007',date:'2026-04-16',store:'Canto Fresco',total:290,status:'Delivered',items:[{name:'Pandesal Set',qty:2},{name:'Leche Flan',qty:1}]},
+];
+
+// ── Date Utilities ───────────────────────────────────────────────────────────
+function todayStr() { return new Date().toISOString().substring(0,10); }
+
+function addDays(str, n) {
+  const d = new Date(str + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().substring(0,10);
+}
+
+function getQuickRange(qp) {
+  const today = todayStr();
+  if (qp === 'today') return { from: today, to: today };
+  if (qp === 'week')  return { from: addDays(today, -6), to: today };
+  if (qp === 'month') {
+    const d = new Date(); const s = new Date(d.getFullYear(), d.getMonth(), 1);
+    return { from: s.toISOString().substring(0,10), to: today };
+  }
+  return { from: '', to: '' }; // 'all'
+}
+
+function prevRange(from, to) {
+  if (!from || !to) return null;
+  const days = Math.round((new Date(to+'T00:00:00') - new Date(from+'T00:00:00')) / 86400000) + 1;
+  return { from: addDays(from, -days), to: addDays(from, -1) };
+}
+
+function filterByRange(orders, from, to) {
+  if (!from && !to) return orders;
+  return orders.filter(o => (!from || o.date >= from) && (!to || o.date <= to));
+}
+
+function pctChange(curr, prev) {
+  if (!prev || prev === 0) return null;
+  return ((curr - prev) / prev * 100);
+}
+
+function weekStart(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const day = d.getDay();
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  return d.toISOString().substring(0,10);
+}
+
+function groupForChart(orders, groupBy) {
+  const dlv = orders.filter(o => !['cancelled','failed','rejected'].includes((o.status||'').toLowerCase()));
+  const map = {};
+  dlv.forEach(o => {
+    let key, label;
+    if (groupBy === 'week') {
+      key = weekStart(o.date);
+      label = key.slice(5);
+    } else if (groupBy === 'month') {
+      key = o.date.substring(0, 7);
+      const d = new Date(o.date + 'T00:00:00');
+      label = d.toLocaleDateString('en-PH', { month: 'short', year: '2-digit' });
+    } else {
+      key = o.date; label = o.date.slice(5);
+    }
+    if (!map[key]) map[key] = { date: label, sales: 0, count: 0 };
+    map[key].sales += o.total;
+    map[key].count += 1;
+  });
+  return Object.entries(map).sort(([a],[b]) => a.localeCompare(b))
+    .map(([,v]) => ({ ...v, sales: Math.round(v.sales) }));
+}
+
+// ── Storage ──────────────────────────────────────────────────────────────────
+const SK = 'ayocafe-v6';
+const loadSt = () => { try { const r=localStorage.getItem(SK); return r?JSON.parse(r):null; } catch{return null;} };
+const saveSt = s => { try { localStorage.setItem(SK, JSON.stringify(s)); } catch{} };
+
+// ── CSV Parser ───────────────────────────────────────────────────────────────
+function parseCSV(text, forcedStore) {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const delim = lines[0].includes(';') ? ';' : ',';
+  const headers = lines[0].split(delim).map(h => h.replace(/"/g,'').trim().toLowerCase());
+  const col = (...n) => { for (const x of n) { const i=headers.findIndex(h=>h.includes(x)); if (i>=0) return i; } return -1; };
+  const idC=col('order id','order number','id'), dateC=col('date','time','created'),
+        totalC=col('total','amount','subtotal','net'), statC=col('status','state'),
+        itemC=col('item','product','menu','name'), qtyC=col('qty','quantity'),
+        storeC=col('store','branch','outlet','location');
+  const map={}, orders=[];
+  for (let i=1; i<lines.length; i++) {
+    const row=lines[i].split(delim).map(c=>c.replace(/"/g,'').trim());
+    if (row.length<2||!row.some(Boolean)) continue;
+    const oid   = idC>=0    ? row[idC]                             : `row-${i}`;
+    const date  = dateC>=0  ? row[dateC].substring(0,10)           : todayStr();
+    const total = totalC>=0 ? parseFloat(row[totalC].replace(/[₱,\s]/g,''))||0 : 0;
+    const status= statC>=0  ? row[statC]                           : 'Delivered';
+    const iname = itemC>=0  ? row[itemC]                           : 'Item';
+    const qty   = qtyC>=0   ? parseInt(row[qtyC])||1               : 1;
+    let store = forcedStore || (storeC>=0&&row[storeC] ? (row[storeC].toLowerCase().includes('canto')?'Canto Fresco':'Ayo Cafe') : 'Ayo Cafe');
+    if (map[oid]) map[oid].items.push({name:iname,qty});
+    else { const o={id:oid,date,total,status,store,items:[{name:iname,qty}]}; map[oid]=o; orders.push(o); }
+  }
+  return orders;
+}
+
+// ── Metrics ──────────────────────────────────────────────────────────────────
+function calcMetrics(orders) {
+  const dlv = orders.filter(o => !['cancelled','failed','rejected'].includes((o.status||'').toLowerCase()));
+  const totalSales=dlv.reduce((s,o)=>s+o.total,0), orderCount=dlv.length;
+  const avgOrderValue=orderCount?totalSales/orderCount:0;
+  const itemMap={};
+  dlv.forEach(o=>o.items?.forEach(it=>{itemMap[it.name]=(itemMap[it.name]||0)+it.qty;}));
+  const topItems=Object.entries(itemMap).map(([name,qty])=>({name,qty})).sort((a,b)=>b.qty-a.qty).slice(0,8);
+  return {totalSales,orderCount,avgOrderValue,topItems};
+}
+
+// ── SVG Charts ───────────────────────────────────────────────────────────────
+function LineChartSVG({ data, color }) {
+  if (!data.length) return <div style={{color:C.gray,fontSize:12,textAlign:'center',padding:24}}>No data for this period</div>;
+  const W=340,H=160,pl=50,pr=10,pt=10,pb=32,pw=W-pl-pr,ph=H-pt-pb;
+  const vals=data.map(d=>d.sales), max=Math.max(...vals)||1, min=Math.min(...vals)||0, range=max-min||1;
+  const pts=data.map((d,i)=>[pl+(i/(data.length-1||1))*pw, pt+ph-((d.sales-min)/range)*ph]);
+  const skip = data.length > 12 ? Math.ceil(data.length / 10) : 1;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:H}}>
+      {[0,.25,.5,.75,1].map(t=>(
+        <line key={t} x1={pl} y1={pt+t*ph} x2={W-pr} y2={pt+t*ph} stroke="#F0EAE0" strokeWidth="1"/>
+      ))}
+      {pts.length>1&&<polyline points={pts.map(p=>p.join(',')).join(' ')} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round"/>}
+      {/* area fill */}
+      {pts.length>1&&<polygon points={`${pts[0][0]},${pt+ph} ${pts.map(p=>p.join(',')).join(' ')} ${pts[pts.length-1][0]},${pt+ph}`} fill={color} fillOpacity=".08"/>}
+      {pts.map(([x,y],i)=><circle key={i} cx={x} cy={y} r="3" fill={color}/>)}
+      {data.map((d,i)=>{
+        if (i % skip !== 0 && i !== data.length-1) return null;
+        const x=pl+(i/(data.length-1||1))*pw;
+        return <text key={i} x={x} y={H-6} textAnchor="middle" fontSize="8.5" fill={C.gray} transform={data.length>8?`rotate(-30,${x},${H-6})`:undefined}>{d.date}</text>;
+      })}
+      {[0,.5,1].map(t=>{
+        const v=min+t*range;
+        return <text key={t} x={pl-4} y={pt+ph-t*ph+4} textAnchor="end" fontSize="8.5" fill={C.gray}>{v>=1000?`${(v/1000).toFixed(0)}k`:Math.round(v)}</text>;
+      })}
+    </svg>
+  );
+}
+
+function BarChartSVG({ data, color }) {
+  if (!data.length) return null;
+  const W=320,barH=18,gap=7,pl=96,pr=40,pt=4;
+  const H=pt+data.length*(barH+gap);
+  const max=Math.max(...data.map(d=>d.qty))||1, bw=W-pl-pr;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:H}}>
+      {data.map((d,i)=>{
+        const y=pt+i*(barH+gap), fw=Math.max(4,(d.qty/max)*bw);
+        const label=d.name.length>14?d.name.slice(0,13)+'…':d.name;
+        return (
+          <g key={i}>
+            <text x={pl-6} y={y+barH/2+4} textAnchor="end" fontSize="9" fill={C.navy}>{label}</text>
+            <rect x={pl} y={y} width={fw} height={barH} rx="4" fill={color}/>
+            <text x={pl+fw+5} y={y+barH/2+4} fontSize="9" fill={C.gray}>{d.qty}×</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ── Hooks ────────────────────────────────────────────────────────────────────
+function useWindowWidth() {
+  const [w,setW]=useState(window.innerWidth);
+  useEffect(()=>{ const h=()=>setW(window.innerWidth); window.addEventListener('resize',h); return ()=>window.removeEventListener('resize',h); },[]);
+  return w;
+}
+
+// ── Delta Badge ──────────────────────────────────────────────────────────────
+function DeltaBadge({ curr, prev }) {
+  const pct = pctChange(curr, prev);
+  if (pct === null) return null;
+  const up = pct >= 0;
+  return (
+    <span style={{display:'inline-block',background:up?C.green+'22':C.red+'22',color:up?C.green:C.red,borderRadius:20,padding:'2px 8px',fontSize:10,fontWeight:700,marginTop:4}}>
+      {up?'↑':'↓'} {Math.abs(pct).toFixed(1)}% vs prev
+    </span>
+  );
+}
+
+// ── Dashboard ────────────────────────────────────────────────────────────────
+function Dashboard() {
+  const width=useWindowWidth(), mob=width<768;
+  const [tab,          setTab]        = useState('overview');
+  const [store,        setStore]      = useState('All Stores');
+  const [orders,       setOrders]     = useState([]);
+  const [reminders,    setRem]        = useState([]);
+  const [newRem,       setNewRem]     = useState({text:'',due:'',priority:'medium',store:'All Stores'});
+  const [impMsg,       setImpMsg]     = useState('');
+  const [lastImp,      setLastImp]    = useState({});
+  const [sideOpen,     setSideOpen]   = useState(false);
+  const [importTarget, setImportTgt]  = useState('Ayo Cafe');
+  // Date / period filter
+  const [quickPct,  setQuickPct]  = useState('all');   // 'all'|'today'|'week'|'month'|'custom'
+  const [dateFrom,  setDateFrom]  = useState('');
+  const [dateTo,    setDateTo]    = useState('');
+  const [groupBy,   setGroupBy]   = useState('day');   // 'day'|'week'|'month'
+  // Per-store custom date
+  const [storeFrom, setStoreFrom] = useState({ 'Ayo Cafe':'', 'Canto Fresco':'' });
+  const [storeTo,   setStoreTo]   = useState({ 'Ayo Cafe':'', 'Canto Fresco':'' });
+  const fileRef = useRef();
+
+  useEffect(()=>{
+    const d=loadSt(); if (!d) return;
+    if (d.orders?.length)  setOrders(d.orders);
+    if (d.reminders)       setRem(d.reminders);
+    if (d.lastImp)         setLastImp(d.lastImp);
+    if (d.quickPct)        setQuickPct(d.quickPct);
+    if (d.groupBy)         setGroupBy(d.groupBy);
+  },[]);
+
+  const persist = (o,rem,li) => saveSt({orders:o,reminders:rem,lastImp:li,quickPct,groupBy});
+
+  // ── Date range logic ───────────────────────────────────────────────────────
+  const baseRange = quickPct === 'custom' ? {from:dateFrom, to:dateTo} : getQuickRange(quickPct);
+
+  // For "All Stores" view — each store can have its own date override
+  const rangeFor = (s) => {
+    if (store !== 'All Stores') return baseRange;
+    const f = storeFrom[s], t = storeTo[s];
+    if (f || t) return { from: f, to: t };
+    return baseRange;
+  };
+
+  // Orders for the current store filter
+  const storeOrders = store === 'All Stores' ? orders : orders.filter(o=>o.store===store);
+  const periodOrders = filterByRange(storeOrders, baseRange.from, baseRange.to);
+
+  // Previous period for comparison
+  const prev = prevRange(baseRange.from, baseRange.to);
+  const prevOrders  = prev ? filterByRange(storeOrders, prev.from, prev.to) : [];
+  const prevMetrics = prevOrders.length ? calcMetrics(prevOrders) : null;
+
+  const metrics  = periodOrders.length ? calcMetrics(periodOrders) : null;
+  const m        = metrics || {};
+  const topItems = m.topItems || [];
+
+  // Chart data — if all-stores, merge per-store ranges
+  const chartOrders = store === 'All Stores'
+    ? STORE_KEYS.flatMap(s => filterByRange(orders.filter(o=>o.store===s), rangeFor(s).from, rangeFor(s).to))
+    : periodOrders;
+  const chartData = groupForChart(chartOrders, groupBy);
+
+  // Grand totals (always all data, no filter)
+  const grandMetrics = storeOrders.length ? calcMetrics(storeOrders) : null;
+
+  // ── CSV import ─────────────────────────────────────────────────────────────
+  const handleFile = async e => {
+    const file=e.target.files[0]; if (!file) return;
+    setImpMsg(`Reading ${file.name}…`);
+    try {
+      const text=await file.text(), parsed=parseCSV(text, importTarget);
+      if (!parsed.length) { setImpMsg('❌ Cannot parse CSV.'); return; }
+      const prev=orders.filter(o=>o.store===importTarget);
+      const kept=orders.filter(o=>o.store!==importTarget), merged=[...kept,...parsed];
+      const li={...lastImp,[importTarget]:{file:file.name,time:new Date().toLocaleString('en-PH'),count:parsed.length,prev:prev.length}};
+      setOrders(merged); setLastImp(li);
+      const newCount=parsed.length-prev.length;
+      setImpMsg(`✅ ${parsed.length} orders for ${STORE_ICON[importTarget]} ${importTarget}${newCount>0?` (+${newCount} new)`:''}`);
+      persist(merged,reminders,li);
+      setTimeout(()=>setImpMsg(''),7000);
+    } catch { setImpMsg('❌ Error reading file.'); }
+    e.target.value='';
+  };
+
+  const loadDemo = () => {
+    const li={
+      'Ayo Cafe':    {file:'demo-ayo.csv',  time:new Date().toLocaleString('en-PH'),count:DEMO_ORDERS.filter(o=>o.store==='Ayo Cafe').length,prev:0},
+      'Canto Fresco':{file:'demo-canto.csv',time:new Date().toLocaleString('en-PH'),count:DEMO_ORDERS.filter(o=>o.store==='Canto Fresco').length,prev:0},
+    };
+    setOrders(DEMO_ORDERS); setLastImp(li); setImpMsg('✅ Demo data loaded for both stores!');
+    persist(DEMO_ORDERS,reminders,li); setTimeout(()=>setImpMsg(''),4000);
+  };
+
+  const clearStore = s => {
+    const kept=orders.filter(o=>o.store!==s), li={...lastImp}; delete li[s];
+    setOrders(kept); setLastImp(li); persist(kept,reminders,li);
+  };
+
+  const applyQuick = qp => {
+    setQuickPct(qp);
+    if (qp !== 'custom') { setDateFrom(''); setDateTo(''); }
+    // Auto groupBy
+    if (qp === 'today') setGroupBy('day');
+    if (qp === 'week')  setGroupBy('day');
+    if (qp === 'month') setGroupBy('day');
+    if (qp === 'all')   setGroupBy('month');
+  };
+
+  // ── Reminders ──────────────────────────────────────────────────────────────
+  const addRem = () => {
+    if (!newRem.text.trim()) return;
+    const r={...newRem,id:Date.now(),done:false}, u=[...reminders,r];
+    setRem(u); setNewRem({text:'',due:'',priority:'medium',store:'All Stores'}); persist(orders,u,lastImp);
+  };
+  const toggleRem = id => { const u=reminders.map(r=>r.id===id?{...r,done:!r.done}:r); setRem(u); persist(orders,u,lastImp); };
+  const deleteRem = id => { const u=reminders.filter(r=>r.id!==id); setRem(u); persist(orders,u,lastImp); };
+  const filtRem   = store==='All Stores'?reminders:reminders.filter(r=>r.store==='All Stores'||r.store===store);
+  const overdue   = filtRem.filter(r=>!r.done&&r.due&&new Date(r.due)<new Date()).length;
+
+  const exportCSV = () => {
+    const rows=[['Order ID','Date','Day','Store','Items','Total','Status']];
+    periodOrders.forEach(o=>{
+      const day=new Date(o.date+'T00:00:00').toLocaleDateString('en-PH',{weekday:'long'});
+      rows.push([o.id,o.date,day,o.store,o.items?.map(i=>`${i.name}x${i.qty}`).join('; ')||'',o.total,o.status]);
+    });
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}));
+    a.download=`${store.replace(' ','-').toLowerCase()}-${quickPct}-export.csv`; a.click();
+  };
+
+  // ── Styles ─────────────────────────────────────────────────────────────────
+  const ac   = STORE_COLOR[store];
+  const card = {background:'#fff',borderRadius:12,padding:mob?14:20,boxShadow:'0 2px 10px rgba(27,43,75,.08)'};
+  const btn  = (bg=ac,fg='#fff',x={}) => ({background:bg,color:fg,border:'none',borderRadius:8,padding:mob?'7px 11px':'8px 14px',cursor:'pointer',fontSize:mob?11:12,fontWeight:600,whiteSpace:'nowrap',...x});
+  const inp  = {border:`1px solid ${C.border}`,borderRadius:8,padding:'8px 11px',fontSize:13,width:'100%',boxSizing:'border-box',outline:'none',fontFamily:'inherit'};
+  const lbl  = {color:C.gray,fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:.5,margin:0};
+
+  // ── Period / Date Filter Bar ───────────────────────────────────────────────
+  const FilterBar = () => (
+    <div style={{...card,marginBottom:12,padding:mob?12:16}}>
+      {/* Quick period tabs */}
+      <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:quickPct==='custom'?10:0}}>
+        {QUICK_PCTS.map(q=>(
+          <button key={q.id} onClick={()=>applyQuick(q.id)}
+            style={{...btn(quickPct===q.id?ac:'#f0ebe5',quickPct===q.id?'#fff':C.navy),fontSize:mob?10:11,padding:'6px 12px',borderRadius:20,border:`1.5px solid ${quickPct===q.id?ac:C.border}`}}>
+            {q.label}
+          </button>
+        ))}
+        <div style={{flex:1}}/>
+        {/* Group by */}
+        <div style={{display:'flex',gap:4,alignItems:'center'}}>
+          <span style={{...lbl,fontSize:9,marginRight:4}}>Group</span>
+          {GROUP_BYS.map(g=>(
+            <button key={g.id} onClick={()=>setGroupBy(g.id)}
+              style={{...btn(groupBy===g.id?C.navy:'#f0ebe5',groupBy===g.id?'#fff':C.gray),padding:'5px 10px',fontSize:10,borderRadius:20,border:`1.5px solid ${groupBy===g.id?C.navy:C.border}`}}>
+              {g.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Custom date range */}
+      {quickPct==='custom'&&(
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+          <div>
+            <p style={{...lbl,fontSize:9,marginBottom:4}}>From</p>
+            <input type="date" style={{...inp,fontSize:12,padding:'7px 10px'}} value={dateFrom} onChange={e=>setDateFrom(e.target.value)}/>
+          </div>
+          <div>
+            <p style={{...lbl,fontSize:9,marginBottom:4}}>To</p>
+            <input type="date" style={{...inp,fontSize:12,padding:'7px 10px'}} value={dateTo} onChange={e=>setDateTo(e.target.value)}/>
+          </div>
+        </div>
+      )}
+
+      {/* Per-store date override (only in All Stores view) */}
+      {store==='All Stores'&&(
+        <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${C.border}`}}>
+          <p style={{...lbl,fontSize:9,marginBottom:8}}>📅 Custom date per store (overrides period above)</p>
+          <div style={{display:'grid',gridTemplateColumns:mob?'1fr':'1fr 1fr',gap:10}}>
+            {STORE_KEYS.map(s=>(
+              <div key={s} style={{background:STORE_COLOR[s]+'11',borderRadius:8,padding:10,border:`1px solid ${STORE_COLOR[s]}33`}}>
+                <p style={{fontWeight:700,fontSize:11,color:STORE_COLOR[s],marginBottom:6}}>{STORE_ICON[s]} {s}</p>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                  <div>
+                    <p style={{...lbl,fontSize:8,marginBottom:3}}>From</p>
+                    <input type="date" style={{...inp,fontSize:11,padding:'5px 8px',background:'#fff'}}
+                      value={storeFrom[s]} onChange={e=>setStoreFrom(p=>({...p,[s]:e.target.value}))}/>
+                  </div>
+                  <div>
+                    <p style={{...lbl,fontSize:8,marginBottom:3}}>To</p>
+                    <input type="date" style={{...inp,fontSize:11,padding:'5px 8px',background:'#fff'}}
+                      value={storeTo[s]} onChange={e=>setStoreTo(p=>({...p,[s]:e.target.value}))}/>
+                  </div>
+                </div>
+                {(storeFrom[s]||storeTo[s])&&(
+                  <button onClick={()=>{setStoreFrom(p=>({...p,[s]:''}));setStoreTo(p=>({...p,[s]:''}));}}
+                    style={{marginTop:6,fontSize:10,color:C.gray,background:'none',border:'none',cursor:'pointer',padding:0}}>× Clear</button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // ── Store status row ───────────────────────────────────────────────────────
+  const StoreRow = () => (
+    <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
+      {STORE_KEYS.map(s=>{
+        const allCnt=orders.filter(o=>o.store===s).length;
+        const info=lastImp[s], has=allCnt>0;
+        const r=rangeFor(s);
+        const filtCnt=filterByRange(orders.filter(o=>o.store===s),r.from,r.to).length;
+        return (
+          <div key={s} style={{display:'flex',alignItems:'center',gap:8,background:'#fff',borderRadius:10,padding:'8px 12px',boxShadow:'0 1px 6px rgba(27,43,75,.07)',border:`2px solid ${has?STORE_COLOR[s]:C.border}`,flex:'1 1 auto',minWidth:180}}>
+            <span style={{fontSize:20}}>{STORE_ICON[s]}</span>
+            <div style={{flex:1,minWidth:0}}>
+              <p style={{fontWeight:700,color:C.navy,margin:0,fontSize:13}}>{s}</p>
+              {has ? (
+                <p style={{color:C.green,fontSize:11,margin:'2px 0 0',fontWeight:600}}>
+                  ✅ {filtCnt} orders shown{quickPct!=='all'?` of ${allCnt} total`:''}{info?` · ${info.file}`:''}
+                  {info?.prev!=null&&allCnt>info.prev?<span style={{color:STORE_COLOR[s]}}> +{allCnt-info.prev} new</span>:null}
+                </p>
+              ) : (
+                <p style={{color:C.gray,fontSize:11,margin:'2px 0 0'}}>No data — import a CSV</p>
+              )}
+            </div>
+            {has&&<button onClick={()=>clearStore(s)} style={{background:'none',border:'none',cursor:'pointer',color:C.gray,fontSize:16,lineHeight:1,padding:0,flexShrink:0}}>×</button>}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const noData = (
+    <div style={{...card,textAlign:'center',padding:mob?40:60}}>
+      <div style={{fontSize:48,marginBottom:16}}>📥</div>
+      <p style={{fontSize:17,fontWeight:700,color:C.navy,margin:'0 0 8px'}}>No data yet</p>
+      <p style={{color:C.gray,margin:'0 0 20px',fontSize:14}}>Import a CSV or try demo data.</p>
+      <button style={btn(ac)} onClick={loadDemo}>🎲 Try Demo Data</button>
+    </div>
+  );
+
+  // ── Import / Store / Nav sections (sidebar & drawer) ──────────────────────
+  const ImportSection = ({onDone}) => (
+    <div style={{padding:'12px 12px 8px',borderBottom:`1px solid ${C.navyL}`}}>
+      <p style={{...lbl,color:C.gray,marginBottom:8}}>Import CSV For</p>
+      <select value={importTarget} onChange={e=>setImportTgt(e.target.value)}
+        style={{...inp,cursor:'pointer',marginBottom:8,background:STORE_COLOR[importTarget]+'33',color:STORE_COLOR[importTarget],fontWeight:700,border:`1.5px solid ${STORE_COLOR[importTarget]}`}}>
+        {STORE_KEYS.map(s=><option key={s} value={s}>{STORE_ICON[s]} {s}</option>)}
+      </select>
+      <button style={{...btn(STORE_COLOR[importTarget]),width:'100%',justifyContent:'center',display:'flex'}}
+        onClick={()=>{fileRef.current.click();onDone&&onDone();}}>📥 Import CSV</button>
+      {!orders.length&&<button style={{...btn(C.navyL),width:'100%',marginTop:8,justifyContent:'center',display:'flex'}}
+        onClick={()=>{loadDemo();onDone&&onDone();}}>🎲 Load Demo</button>}
+      {impMsg&&<p style={{fontSize:11,color:impMsg.includes('✅')?C.green:C.red,fontWeight:600,margin:'8px 0 0',wordBreak:'break-word'}}>{impMsg}</p>}
+    </div>
+  );
+
+  const StoreFilter = ({onPick}) => (
+    <div style={{padding:'12px 10px 8px',borderBottom:`1px solid ${C.navyL}`}}>
+      <p style={{...lbl,color:C.gray,marginBottom:8,paddingLeft:8}}>View Store</p>
+      {STORES.map(s=>(
+        <div key={s} onClick={()=>{setStore(s);onPick&&onPick();}}
+          style={{display:'flex',alignItems:'center',gap:8,padding:'9px 10px',marginBottom:3,borderRadius:8,cursor:'pointer',background:store===s?STORE_COLOR[s]:'transparent',color:store===s?'#fff':C.gray,fontSize:13,fontWeight:store===s?700:400}}>
+          {STORE_ICON[s]} {s}
+          {s!=='All Stores'&&orders.filter(o=>o.store===s).length>0&&(
+            <span style={{marginLeft:'auto',background:'rgba(255,255,255,.25)',borderRadius:20,padding:'1px 7px',fontSize:10}}>{orders.filter(o=>o.store===s).length}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+
+  const NavLinks = ({onPick}) => (
+    <nav style={{flex:1,padding:'8px 8px'}}>
+      {NAV.map(n=>{
+        const active=tab===n.id, alerts=(n.id==='reminders'&&overdue)||0;
+        return (
+          <div key={n.id} onClick={()=>{setTab(n.id);onPick&&onPick();}}
+            style={{display:'flex',alignItems:'center',gap:10,padding:'11px 12px',cursor:'pointer',borderRadius:8,background:active?ac:'transparent',color:active?'#fff':C.gray,fontSize:14,fontWeight:active?600:400,transition:'all .15s',marginBottom:3,justifyContent:'space-between'}}>
+            <span style={{display:'flex',gap:10}}><span>{n.icon}</span>{n.label}</span>
+            {alerts>0&&<span style={{background:'#FB6376',color:'#fff',borderRadius:99,fontSize:10,fontWeight:700,padding:'1px 7px'}}>{alerts}</span>}
+          </div>
+        );
+      })}
+    </nav>
+  );
+
+  const DataStatus = () => (
+    <div style={{margin:'0 10px 14px',display:'grid',gap:5}}>
+      {STORE_KEYS.map(s=>{
+        const cnt=orders.filter(o=>o.store===s).length, info=lastImp[s];
+        return (
+          <div key={s} style={{background:C.navyL,borderRadius:8,padding:'8px 10px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span style={{fontSize:11,color:cnt>0?C.green:C.gray,fontWeight:600}}>{STORE_ICON[s]} {s}</span>
+              {cnt>0&&<button onClick={()=>clearStore(s)} style={{background:'none',border:'none',cursor:'pointer',color:C.gray,fontSize:14,padding:0,lineHeight:1}}>×</button>}
+            </div>
+            <p style={{color:cnt>0?'#fff':C.gray,fontSize:10,margin:'3px 0 0',fontWeight:cnt>0?600:400}}>{cnt>0?`${cnt} orders${info?` · ${info.file}`:''}`:'-'}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // ── Desktop Sidebar ────────────────────────────────────────────────────────
+  const Sidebar = () => (
+    <div style={{width:235,minWidth:235,background:C.navy,display:'flex',flexDirection:'column',height:'100vh',position:'sticky',top:0,overflowY:'auto'}}>
+      <div style={{padding:'22px 18px 16px',borderBottom:`1px solid ${C.navyL}`}}>
+        <p style={{color:'#fff',fontSize:15,fontWeight:700,margin:0}}>☕ Ayo / 🥐 Canto</p>
+        <p style={{color:C.gray,fontSize:11,margin:'2px 0 0'}}>FoodPanda Ops Dashboard</p>
+      </div>
+      <StoreFilter/>
+      <ImportSection/>
+      <NavLinks/>
+      <DataStatus/>
+    </div>
+  );
+
+  // ── Mobile Header ──────────────────────────────────────────────────────────
+  const MobileHeader = () => (
+    <div style={{position:'fixed',top:0,left:0,right:0,zIndex:100,background:C.navy,display:'flex',alignItems:'center',gap:10,padding:'12px 16px',boxShadow:'0 2px 8px rgba(0,0,0,.25)'}}>
+      <button onClick={()=>setSideOpen(v=>!v)} style={{background:'none',border:'none',color:'#fff',fontSize:22,cursor:'pointer',padding:0,lineHeight:1}}>☰</button>
+      <div style={{flex:1}}>
+        <p style={{color:'#fff',fontSize:14,fontWeight:700,margin:0}}>☕ Ayo / 🥐 Canto</p>
+        <p style={{color:C.gray,fontSize:11,margin:0}}>{STORE_ICON[store]} {store}</p>
+      </div>
+      <select value={store} onChange={e=>setStore(e.target.value)}
+        style={{background:ac,color:'#fff',border:'none',borderRadius:8,padding:'6px 10px',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+        {STORES.map(s=><option key={s} value={s}>{STORE_ICON[s]} {s}</option>)}
+      </select>
+    </div>
+  );
+
+  // ── Mobile Drawer ──────────────────────────────────────────────────────────
+  const MobileDrawer = () => !sideOpen ? null : (
+    <div style={{position:'fixed',inset:0,zIndex:200,display:'flex'}}>
+      <div style={{width:270,background:C.navy,height:'100%',display:'flex',flexDirection:'column',overflowY:'auto'}}>
+        <div style={{padding:'20px 16px 14px',borderBottom:`1px solid ${C.navyL}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div>
+            <p style={{color:'#fff',fontSize:15,fontWeight:700,margin:0}}>Ayo Cafe / Canto Fresco</p>
+            <p style={{color:C.gray,fontSize:11,margin:'2px 0 0'}}>FoodPanda Ops Dashboard</p>
+          </div>
+          <button onClick={()=>setSideOpen(false)} style={{background:'none',border:'none',color:C.gray,fontSize:22,cursor:'pointer'}}>×</button>
+        </div>
+        <StoreFilter onPick={()=>setSideOpen(false)}/>
+        <ImportSection onDone={()=>setSideOpen(false)}/>
+        <NavLinks onPick={()=>setSideOpen(false)}/>
+        <div style={{margin:'auto 12px 16px',display:'grid',gap:6}}>
+          {STORE_KEYS.map(s=>{const cnt=orders.filter(o=>o.store===s).length; return (
+            <div key={s} style={{background:C.navyL,borderRadius:8,padding:'8px 10px',display:'flex',justifyContent:'space-between'}}>
+              <span style={{fontSize:11,color:cnt>0?C.green:C.gray}}>{STORE_ICON[s]} {s}</span>
+              <span style={{fontSize:11,color:cnt>0?'#fff':C.gray,fontWeight:700}}>{cnt>0?`${cnt} orders`:'No data'}</span>
+            </div>
+          );})}
+        </div>
+      </div>
+      <div style={{flex:1,background:'rgba(0,0,0,.45)'}} onClick={()=>setSideOpen(false)}/>
+    </div>
+  );
+
+  // ── Bottom Nav ─────────────────────────────────────────────────────────────
+  const BottomNav = () => (
+    <div style={{position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:C.navy,display:'flex',borderTop:`1px solid ${C.navyL}`}}>
+      {NAV.map(n=>{
+        const active=tab===n.id, alerts=(n.id==='reminders'&&overdue)||0;
+        return (
+          <div key={n.id} onClick={()=>setTab(n.id)} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',padding:'8px 2px 10px',cursor:'pointer',color:active?ac:C.gray,position:'relative'}}>
+            {alerts>0&&<span style={{position:'absolute',top:6,right:'20%',background:'#FB6376',color:'#fff',borderRadius:99,fontSize:9,fontWeight:700,padding:'1px 5px',lineHeight:1.3}}>{alerts}</span>}
+            <span style={{fontSize:20}}>{n.icon}</span>
+            <span style={{fontSize:9,fontWeight:active?700:400,marginTop:2}}>{n.label}</span>
+            {active&&<div style={{position:'absolute',top:0,left:'20%',right:'20%',height:2,background:ac,borderRadius:2}}/>}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const mainPad = mob ? '78px 12px 80px' : '20px 24px';
+
+  return (
+    <div style={{display:'flex',height:'100vh',fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.cream,overflow:'hidden'}}>
+      <input ref={fileRef} type="file" accept=".csv" style={{display:'none'}} onChange={handleFile}/>
+      {mob ? <><MobileHeader/><MobileDrawer/></> : <Sidebar/>}
+
+      <div style={{flex:1,overflowY:'auto',padding:mainPad}}>
+        {/* Desktop page title */}
+        {!mob&&(
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14,flexWrap:'wrap',gap:10}}>
+            <div>
+              <h1 style={{fontSize:20,fontWeight:700,color:C.navy,margin:0}}>{NAV.find(n=>n.id===tab)?.icon} {NAV.find(n=>n.id===tab)?.label}</h1>
+              <p style={{margin:'3px 0 0',fontSize:12,color:ac,fontWeight:600}}>
+                {STORE_ICON[store]} {store}
+                {periodOrders.length>0&&<span style={{color:C.gray,fontWeight:400}}> · {periodOrders.length} orders{quickPct!=='all'?` in period`:''}</span>}
+              </p>
+            </div>
+            {periodOrders.length>0&&<button style={btn(C.navyL)} onClick={exportCSV}>⬇️ Export CSV</button>}
+          </div>
+        )}
+        {mob&&(
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <div>
+              <h2 style={{fontSize:16,fontWeight:700,color:C.navy,margin:0}}>{NAV.find(n=>n.id===tab)?.icon} {NAV.find(n=>n.id===tab)?.label}</h2>
+              {periodOrders.length>0&&<p style={{margin:'2px 0 0',fontSize:11,color:C.gray}}>{periodOrders.length} orders · {store}</p>}
+            </div>
+            {periodOrders.length>0&&<button style={btn(C.navyL)} onClick={exportCSV}>⬇️</button>}
+          </div>
+        )}
+
+        {/* ── Overview ── */}
+        {tab==='overview'&&(
+          <>
+            <StoreRow/>
+            <FilterBar/>
+
+            {!storeOrders.length ? noData : (
+              <>
+                {/* Grand Total Banner */}
+                {quickPct!=='all'&&grandMetrics&&(
+                  <div style={{...card,marginBottom:12,background:`linear-gradient(135deg,${C.navyL},${C.navy})`,color:'#fff',display:'flex',flexWrap:'wrap',gap:16,alignItems:'center'}}>
+                    <div>
+                      <p style={{...lbl,color:'rgba(255,255,255,.5)',marginBottom:2}}>Grand Total (All Uploaded Data)</p>
+                      <p style={{fontSize:mob?20:26,fontWeight:700,color:'#fff',margin:0}}>
+                        ₱{grandMetrics.totalSales.toLocaleString('en-PH',{minimumFractionDigits:2})}
+                      </p>
+                    </div>
+                    <div style={{flex:1,display:'flex',gap:16,flexWrap:'wrap'}}>
+                      <div>
+                        <p style={{...lbl,color:'rgba(255,255,255,.5)',marginBottom:2}}>Total Orders</p>
+                        <p style={{fontSize:18,fontWeight:700,color:'#fff',margin:0}}>{grandMetrics.orderCount}</p>
+                      </div>
+                      <div>
+                        <p style={{...lbl,color:'rgba(255,255,255,.5)',marginBottom:2}}>Avg Order</p>
+                        <p style={{fontSize:18,fontWeight:700,color:'#fff',margin:0}}>₱{grandMetrics.avgOrderValue.toFixed(0)}</p>
+                      </div>
+                    </div>
+                    <span style={{color:'rgba(255,255,255,.3)',fontSize:12}}>Viewing: {QUICK_PCTS.find(q=>q.id===quickPct)?.label}</span>
+                  </div>
+                )}
+
+                {/* Per-store cards in All Stores view */}
+                {store==='All Stores'&&(
+                  <div style={{display:'grid',gridTemplateColumns:mob?'1fr':'1fr 1fr',gap:12,marginBottom:12}}>
+                    {STORE_KEYS.map(s=>{
+                      const r=rangeFor(s);
+                      const ords=filterByRange(orders.filter(o=>o.store===s),r.from,r.to);
+                      const allOrds=orders.filter(o=>o.store===s);
+                      if (!allOrds.length) return (
+                        <div key={s} onClick={()=>setStore(s)} style={{...card,borderLeft:`4px solid ${STORE_COLOR[s]}`,cursor:'pointer',opacity:.6,display:'flex',alignItems:'center',gap:12}}>
+                          <span style={{fontSize:26}}>{STORE_ICON[s]}</span>
+                          <div><p style={{...lbl,marginBottom:2}}>{s}</p><p style={{color:C.gray,fontSize:13,margin:0}}>No data — import CSV</p></div>
+                        </div>
+                      );
+                      const sm=calcMetrics(ords);
+                      const allSm=calcMetrics(allOrds);
+                      return (
+                        <div key={s} onClick={()=>setStore(s)} style={{...card,borderLeft:`4px solid ${STORE_COLOR[s]}`,cursor:'pointer'}}>
+                          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+                            <p style={{...lbl,marginBottom:0}}>{STORE_ICON[s]} {s}</p>
+                            <span style={{color:C.gray,fontSize:16}}>›</span>
+                          </div>
+                          <p style={{fontSize:mob?18:22,fontWeight:700,color:STORE_COLOR[s],margin:'0 0 2px'}}>
+                            ₱{sm.totalSales.toLocaleString('en-PH',{minimumFractionDigits:2})}
+                          </p>
+                          <p style={{fontSize:11,color:C.gray,margin:'0 0 4px'}}>{ords.length} orders &nbsp;·&nbsp; avg ₱{sm.avgOrderValue.toFixed(0)}</p>
+                          {quickPct!=='all'&&(
+                            <p style={{fontSize:10,color:STORE_COLOR[s],margin:0,fontWeight:600}}>
+                              Grand total: ₱{allSm.totalSales.toLocaleString('en-PH',{minimumFractionDigits:2})} ({allOrds.length} orders)
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* KPI Cards */}
+                {metrics&&(
+                  <div style={{display:'grid',gridTemplateColumns:mob?'1fr 1fr':'repeat(3,1fr)',gap:mob?10:12,marginBottom:12}}>
+                    {[
+                      {l:quickPct==='all'?'Total Sales':'Period Sales',    v:`₱${m.totalSales?.toLocaleString('en-PH',{minimumFractionDigits:2})}`, c:ac,    prev:prevMetrics?.totalSales   },
+                      {l:quickPct==='all'?'Total Orders':'Period Orders',   v:m.orderCount,                                                           c:C.navy, prev:prevMetrics?.orderCount   },
+                      {l:'Avg Order Value',                                 v:`₱${m.avgOrderValue?.toFixed(2)}`,                                      c:C.green,prev:prevMetrics?.avgOrderValue},
+                    ].map(({l,v,c,prev: pv},i)=>(
+                      <div key={l} style={{...card,gridColumn:mob&&i===2?'1 / -1':'auto'}}>
+                        <p style={lbl}>{l}</p>
+                        <p style={{fontSize:mob?18:22,fontWeight:700,color:c,margin:'6px 0 2px'}}>{v}</p>
+                        {pv!=null&&<DeltaBadge curr={typeof m.totalSales!=='undefined'?(i===0?m.totalSales:i===1?m.orderCount:m.avgOrderValue):0} prev={pv}/>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Previous period info */}
+                {prev&&prevMetrics&&(
+                  <div style={{...card,marginBottom:12,padding:'10px 16px',background:'#f8f5f0',border:`1px solid ${C.border}`}}>
+                    <p style={{...lbl,fontSize:9,marginBottom:4}}>Previous period ({prev.from} → {prev.to})</p>
+                    <div style={{display:'flex',gap:20,flexWrap:'wrap'}}>
+                      <span style={{fontSize:12,color:C.gray}}>Sales: <b style={{color:C.navy}}>₱{prevMetrics.totalSales.toLocaleString('en-PH',{minimumFractionDigits:2})}</b></span>
+                      <span style={{fontSize:12,color:C.gray}}>Orders: <b style={{color:C.navy}}>{prevMetrics.orderCount}</b></span>
+                      <span style={{fontSize:12,color:C.gray}}>Avg: <b style={{color:C.navy}}>₱{prevMetrics.avgOrderValue.toFixed(0)}</b></span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Charts */}
+                <div style={{display:'grid',gridTemplateColumns:mob?'1fr':'1fr 1fr',gap:12}}>
+                  <div style={card}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                      <p style={{fontWeight:700,color:C.navy,fontSize:14,margin:0}}>
+                        📈 Sales {groupBy==='day'?'Daily':groupBy==='week'?'Weekly':'Monthly'}
+                      </p>
+                      {chartData.length>0&&(
+                        <span style={{fontSize:10,color:C.gray}}>{chartData.length} {groupBy}s</span>
+                      )}
+                    </div>
+                    <LineChartSVG data={chartData} color={ac}/>
+                  </div>
+                  <div style={card}>
+                    <p style={{fontWeight:700,color:C.navy,margin:'0 0 10px',fontSize:14}}>🍽️ Top Items</p>
+                    <BarChartSVG data={topItems.slice(0,6)} color={ac}/>
+                  </div>
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── Orders ── */}
+        {tab==='orders'&&(
+          <>
+            {storeOrders.length>0&&<FilterBar/>}
+            {!storeOrders.length ? noData : !periodOrders.length ? (
+              <div style={{...card,textAlign:'center',padding:40}}>
+                <p style={{fontSize:36,marginBottom:10}}>🔍</p>
+                <p style={{fontWeight:700,color:C.navy,marginBottom:6}}>No orders in this period</p>
+                <p style={{color:C.gray,fontSize:13}}>Try expanding the date range or switching to All Time.</p>
+              </div>
+            ) : mob ? (
+              <div style={{display:'grid',gap:10}}>
+                {[...periodOrders].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((o,i)=>{
+                  const canc=['cancelled','failed','rejected'].includes((o.status||'').toLowerCase());
+                  const sc=STORE_COLOR[o.store]||C.orange;
+                  const day=new Date(o.date+'T00:00:00').toLocaleDateString('en-PH',{weekday:'short'});
+                  return (
+                    <div key={i} style={{...card,borderLeft:`4px solid ${sc}`}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+                        <div>
+                          <p style={{fontWeight:700,color:C.navy,margin:0,fontSize:13}}>{o.id}</p>
+                          <p style={{color:C.gray,fontSize:11,margin:'2px 0 0'}}>📅 {o.date} ({day})</p>
+                        </div>
+                        <div style={{textAlign:'right'}}>
+                          <p style={{fontWeight:700,color:ac,margin:0,fontSize:14}}>₱{o.total.toLocaleString('en-PH',{minimumFractionDigits:2})}</p>
+                          <span style={{background:(canc?C.red:C.green)+'22',color:canc?C.red:C.green,borderRadius:20,padding:'2px 8px',fontSize:10,fontWeight:700}}>{canc?'❌':'✅'} {o.status}</span>
+                        </div>
+                      </div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                        <span style={{background:sc+'22',color:sc,borderRadius:20,padding:'2px 8px',fontSize:10,fontWeight:600}}>{STORE_ICON[o.store]} {o.store}</span>
+                        {o.items?.map((it,j)=><span key={j} style={{background:C.cream,border:`1px solid ${C.border}`,borderRadius:6,padding:'2px 7px',fontSize:10}}>{it.name} ×{it.qty}</span>)}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div style={{...card,background:'#f0ebe5',textAlign:'center',padding:14}}>
+                  <p style={{fontSize:13,fontWeight:700,color:C.navy}}>
+                    Period Total: ₱{periodOrders.filter(o=>!['cancelled','failed','rejected'].includes((o.status||'').toLowerCase())).reduce((s,o)=>s+o.total,0).toLocaleString('en-PH',{minimumFractionDigits:2})}
+                    &nbsp;·&nbsp; {periodOrders.length} orders
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div style={card}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14,flexWrap:'wrap',gap:8}}>
+                  <p style={{fontWeight:700,color:C.navy,margin:0}}>{periodOrders.length} Orders — {store}</p>
+                  <div style={{display:'flex',gap:12}}>
+                    <span style={{fontSize:12,color:C.gray}}>
+                      Period Sales: <b style={{color:ac}}>₱{periodOrders.filter(o=>!['cancelled','failed','rejected'].includes((o.status||'').toLowerCase())).reduce((s,o)=>s+o.total,0).toLocaleString('en-PH',{minimumFractionDigits:2})}</b>
+                    </span>
+                  </div>
+                </div>
+                <div style={{overflowX:'auto'}}>
+                  <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                    <thead>
+                      <tr style={{background:C.cream}}>
+                        {['Order ID','Date','Day','Store','Items Ordered','Total','Status'].map(h=>(
+                          <th key={h} style={{textAlign:'left',padding:'10px 14px',fontSize:11,fontWeight:700,color:C.gray,textTransform:'uppercase',letterSpacing:.5,whiteSpace:'nowrap'}}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...periodOrders].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((o,i)=>{
+                        const d=new Date(o.date+'T00:00:00'), day=d.toLocaleDateString('en-PH',{weekday:'long'});
+                        const canc=['cancelled','failed','rejected'].includes((o.status||'').toLowerCase());
+                        const sc=STORE_COLOR[o.store]||C.orange;
+                        return (
+                          <tr key={i} style={{borderTop:`1px solid ${C.border}`,background:i%2===0?'#fff':'#FDFAF7'}}>
+                            <td style={{padding:'11px 14px',fontWeight:600,color:C.navy,whiteSpace:'nowrap'}}>{o.id}</td>
+                            <td style={{padding:'11px 14px',color:C.navy,whiteSpace:'nowrap'}}>📅 {o.date}</td>
+                            <td style={{padding:'11px 14px',color:C.gray,whiteSpace:'nowrap'}}>{day}</td>
+                            <td style={{padding:'11px 14px',whiteSpace:'nowrap'}}><span style={{background:sc+'22',color:sc,borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>{STORE_ICON[o.store]} {o.store}</span></td>
+                            <td style={{padding:'11px 14px',maxWidth:220}}>{o.items?.map((it,j)=><span key={j} style={{display:'inline-block',background:C.cream,border:`1px solid ${C.border}`,borderRadius:6,padding:'2px 7px',fontSize:11,margin:'2px 2px 2px 0',whiteSpace:'nowrap'}}>{it.name} ×{it.qty}</span>)}</td>
+                            <td style={{padding:'11px 14px',fontWeight:700,color:ac,whiteSpace:'nowrap'}}>₱{o.total.toLocaleString('en-PH',{minimumFractionDigits:2})}</td>
+                            <td style={{padding:'11px 14px'}}><span style={{background:(canc?C.red:C.green)+'22',color:canc?C.red:C.green,borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700,whiteSpace:'nowrap'}}>{canc?'❌':'✅'} {o.status}</span></td>
+                          </tr>
+                        );
+                      })}
+                      <tr style={{background:'#f0ebe5',borderTop:`2px solid ${C.border}`}}>
+                        <td colSpan={5} style={{padding:'12px 14px',fontWeight:700,color:C.navy,fontSize:13}}>Period Total</td>
+                        <td style={{padding:'12px 14px',fontWeight:700,color:ac,fontSize:14}}>
+                          ₱{periodOrders.filter(o=>!['cancelled','failed','rejected'].includes((o.status||'').toLowerCase())).reduce((s,o)=>s+o.total,0).toLocaleString('en-PH',{minimumFractionDigits:2})}
+                        </td>
+                        <td style={{padding:'12px 14px',color:C.gray,fontSize:12}}>{periodOrders.length} orders</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Top Items ── */}
+        {tab==='items'&&(
+          <>
+            {storeOrders.length>0&&<FilterBar/>}
+            {!topItems.length ? noData : (
+              <div style={card}>
+                <p style={{fontWeight:700,color:C.navy,margin:'0 0 14px',fontSize:14}}>
+                  Top Items — {store} {quickPct!=='all'?`(${QUICK_PCTS.find(q=>q.id===quickPct)?.label})`:'(All Time)'}
+                </p>
+                {mob ? (
+                  <div style={{display:'grid',gap:10}}>
+                    {topItems.map((item,i)=>{
+                      const pct=Math.round((item.qty/topItems[0].qty)*100);
+                      return (
+                        <div key={i} style={{padding:'10px 0',borderBottom:i<topItems.length-1?`1px solid ${C.border}`:'none'}}>
+                          <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                            <span style={{fontWeight:600,color:C.navy,fontSize:13}}>
+                              <span style={{color:i<3?ac:C.gray,fontWeight:700}}>#{i+1}</span> {item.name}
+                            </span>
+                            <span style={{color:C.navy,fontSize:13,fontWeight:600}}>{item.qty}×</span>
+                          </div>
+                          <div style={{display:'flex',alignItems:'center',gap:8}}>
+                            <div style={{background:C.border,borderRadius:20,height:7,flex:1}}><div style={{background:ac,borderRadius:20,height:7,width:`${pct}%`}}/></div>
+                            <span style={{fontSize:11,color:C.gray,width:28}}>{pct}%</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <table style={{width:'100%',borderCollapse:'collapse'}}>
+                    <thead><tr style={{background:C.cream}}>
+                      {['Rank','Item Name','Qty Sold','% of Top'].map(h=>(
+                        <th key={h} style={{textAlign:'left',padding:'10px 14px',fontSize:11,fontWeight:700,color:C.gray,textTransform:'uppercase',letterSpacing:.5}}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>
+                      {topItems.map((item,i)=>{
+                        const pct=Math.round((item.qty/topItems[0].qty)*100);
+                        return (
+                          <tr key={i} style={{borderTop:`1px solid ${C.border}`}}>
+                            <td style={{padding:'13px 14px',fontWeight:700,color:i<3?ac:C.gray,fontSize:15}}>#{i+1}</td>
+                            <td style={{padding:'13px 14px',fontWeight:600,color:C.navy}}>{item.name}</td>
+                            <td style={{padding:'13px 14px',color:C.navy}}>{item.qty}×</td>
+                            <td style={{padding:'13px 14px',minWidth:160}}>
+                              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                                <div style={{background:C.border,borderRadius:20,height:8,flex:1}}><div style={{background:ac,borderRadius:20,height:8,width:`${pct}%`}}/></div>
+                                <span style={{fontSize:12,color:C.gray,width:32}}>{pct}%</span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Reminders ── */}
+        {tab==='reminders'&&(
+          <div>
+            <div style={{...card,marginBottom:12}}>
+              <p style={{fontWeight:700,color:C.navy,margin:'0 0 12px',fontSize:14}}>Add Reminder</p>
+              <div style={{display:'grid',gap:10}}>
+                <input style={inp} placeholder="e.g. Restock coffee beans…" value={newRem.text}
+                  onChange={e=>setNewRem({...newRem,text:e.target.value})} onKeyDown={e=>e.key==='Enter'&&addRem()}/>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                  <input type="date" style={inp} value={newRem.due} onChange={e=>setNewRem({...newRem,due:e.target.value})}/>
+                  <select style={{...inp,cursor:'pointer'}} value={newRem.store} onChange={e=>setNewRem({...newRem,store:e.target.value})}>
+                    {STORES.map(s=><option key={s} value={s}>{STORE_ICON[s]} {s}</option>)}
+                  </select>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:10}}>
+                  <select style={{...inp,cursor:'pointer'}} value={newRem.priority} onChange={e=>setNewRem({...newRem,priority:e.target.value})}>
+                    <option value="high">🔴 High</option>
+                    <option value="medium">🟡 Medium</option>
+                    <option value="low">🟢 Low</option>
+                  </select>
+                  <button style={btn(ac)} onClick={addRem}>Add</button>
+                </div>
+              </div>
+            </div>
+            <div style={{display:'grid',gap:10}}>
+              {!filtRem.length&&<p style={{color:C.gray,textAlign:'center',padding:40,fontSize:14}}>No reminders. Add one above!</p>}
+              {[...filtRem].sort((a,b)=>(a.done-b.done)||(new Date(a.due||'9999')-new Date(b.due||'9999'))).map(r=>{
+                const od=!r.done&&r.due&&new Date(r.due)<new Date(), sc=STORE_COLOR[r.store]||C.gray;
+                return (
+                  <div key={r.id} style={{...card,display:'flex',alignItems:'flex-start',gap:10,opacity:r.done?.6:1,borderLeft:`4px solid ${PRI_COLOR[r.priority]}`}}>
+                    <input type="checkbox" checked={r.done} onChange={()=>toggleRem(r.id)} style={{width:18,height:18,cursor:'pointer',marginTop:2,flexShrink:0}}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <p style={{margin:0,fontWeight:600,color:C.navy,textDecoration:r.done?'line-through':'none',fontSize:14}}>{r.text}</p>
+                      <div style={{display:'flex',gap:6,marginTop:5,flexWrap:'wrap'}}>
+                        {r.due&&<p style={{margin:0,fontSize:11,color:od?C.red:C.gray}}>📅 {od?'⚠️ ':''}{r.due}</p>}
+                        <span style={{background:sc+'22',color:sc,borderRadius:20,padding:'1px 8px',fontSize:11,fontWeight:600}}>{STORE_ICON[r.store]||'🏪'} {r.store}</span>
+                        <span style={{background:PRI_COLOR[r.priority],color:'#fff',borderRadius:6,padding:'1px 8px',fontSize:11,fontWeight:700}}>{r.priority.toUpperCase()}</span>
+                      </div>
+                    </div>
+                    <button onClick={()=>deleteRem(r.id)} style={{background:'none',border:'none',cursor:'pointer',color:C.gray,fontSize:20,lineHeight:1,padding:0,flexShrink:0}}>×</button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {mob&&<BottomNav/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Dashboard/>);
+</script>
+</body>
+</html>
